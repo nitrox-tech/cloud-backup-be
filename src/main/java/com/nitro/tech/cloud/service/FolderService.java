@@ -69,6 +69,9 @@ public class FolderService {
         f.setShareable(shareable);
 
         if (parentId == null) {
+            if (!shareable && folderRepository.countByUserIdAndParentIdIsNullAndShareableFalse(actorId) > 0) {
+                throw new ConflictException("Only one private root folder is allowed per user");
+            }
             f.setUserId(actorId);
             f.setParentId(null);
             if (shareable) {

@@ -137,6 +137,11 @@ Response (example):
 }
 ```
 
+Notes:
+
+- Each user can create only **one** private root folder (`parent_id = null` and `shareable = false`).
+- Creating another private root folder for the same user returns `409` with an error message.
+
 ## `POST /files/metadata`
 
 Request:

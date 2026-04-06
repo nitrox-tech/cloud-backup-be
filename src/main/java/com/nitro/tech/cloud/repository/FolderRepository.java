@@ -14,6 +14,8 @@ public interface FolderRepository extends JpaRepository<Folder, String> {
 
     long countByUserIdAndParentIdIsNull(String userId);
 
+    long countByUserIdAndParentIdIsNullAndShareableFalse(String userId);
+
     /** All folders belonging to archive trees where the user is an explicit member (shareable roots only). */
     @Query(
             """
