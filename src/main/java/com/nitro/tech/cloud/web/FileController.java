@@ -6,6 +6,10 @@ import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
 import com.nitro.tech.cloud.web.dto.FileResponse;
 import com.nitro.tech.cloud.web.dto.ListResponse;
 import com.nitro.tech.cloud.web.dto.UpdateFileMetadataRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/files")
+@Tag(name = "Files", description = "Metadata file (Telegram message_id, chunk, …). Cần API key + JWT")
 public class FileController {
 
     private final FileMetadataService fileMetadataService;
@@ -29,6 +34,9 @@ public class FileController {
         this.fileMetadataService = fileMetadataService;
     }
 
+    @Operation(
+            summary = "Tạo metadata file",
+            description = "Lưu thông tin file đã gửi lên Telegram (message_id, telegram_file_id, folder, chunk…).")
     @PostMapping("/metadata")
     public ResponseEntity<?> createMetadata(@Valid @RequestBody FileMetadataRequest body) {
         String userId = SecurityUtils.currentUserId();
@@ -40,8 +48,13 @@ public class FileController {
         }
     }
 
+    @Operation(
+            summary = "Danh sách file",
+            description = "Lọc theo folder (optional). Không truyền folder_id thì trả về file user có quyền xem theo rule service.")
     @GetMapping
-    public ResponseEntity<?> list(@RequestParam(name = "folder_id", required = false) String folderId) {
+    public ResponseEntity<?> list(
+            @Parameter(description = "UUID folder (optional)") @RequestParam(name = "folder_id", required = false)
+                    String folderId) {
         String userId = SecurityUtils.currentUserId();
         try {
             var items = fileMetadataService.list(userId, folderId).stream().map(FileResponse::from).toList();
@@ -51,8 +64,9 @@ public class FileController {
         }
     }
 
+    @Operation(summary = "Lấy chi tiết file", description = "Theo id metadata; 404 nếu không tồn tại hoặc không có quyền.")
     @GetMapping("/{id}")
-    public ResponseEntity<?> get(@PathVariable String id) {
+    public ResponseEntity<?> get(@Parameter(description = "UUID file metadata") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
             return ResponseEntity.ok(FileResponse.from(fileMetadataService.getIfAccessible(userId, id)));
@@ -61,8 +75,11 @@ public class FileController {
         }
     }
 
+    @Operation(summary = "Đổi tên file (metadata)", description = "Chỉ cập nhật tên hiển thị trong app.")
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable String id, @Valid @RequestBody UpdateFileMetadataRequest body) {
+    public ResponseEntity<?> update(
+            @Parameter(description = "UUID file metadata") @PathVariable String id,
+            @Valid @RequestBody UpdateFileMetadataRequest body) {
         String userId = SecurityUtils.currentUserId();
         try {
             var updated = fileMetadataService.updateIfAccessible(userId, id, body.fileName());
@@ -72,8 +89,9 @@ public class FileController {
         }
     }
 
+    @Operation(summary = "Xóa metadata file", description = "Xóa bản ghi metadata; 404 nếu không có quyền.")
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable String id) {
+    public ResponseEntity<?> delete(@Parameter(description = "UUID file metadata") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
             fileMetadataService.deleteIfAccessible(userId, id);
@@ -83,5 +101,6 @@ public class FileController {
         }
     }
 
+    @Schema(name = "FileError", description = "Lỗi 400/404 — message từ server")
     public record ErrorBody(String error) {}
 }

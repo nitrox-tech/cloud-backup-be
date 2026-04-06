@@ -10,6 +10,10 @@ import com.nitro.tech.cloud.web.dto.FolderResponse;
 import com.nitro.tech.cloud.web.dto.ListResponse;
 import com.nitro.tech.cloud.web.dto.RenameFolderRequest;
 import com.nitro.tech.cloud.web.dto.SetFolderTelegramChatRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/folders")
+@Tag(name = "Folders", description = "Thư mục / archive Telegram (metadata). Cần API key + JWT")
 public class FolderController {
 
     private final FolderService folderService;
@@ -32,6 +37,9 @@ public class FolderController {
         this.folderService = folderService;
     }
 
+    @Operation(
+            summary = "Tạo folder",
+            description = "Tạo root hoặc folder con. Root shareable có thể gắn telegram_chat_id. 409 nếu trùng tên trong cùng parent.")
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateFolderRequest body) {
         String userId = SecurityUtils.currentUserId();
@@ -45,6 +53,7 @@ public class FolderController {
         }
     }
 
+    @Operation(summary = "Danh sách folder", description = "Cây folder user có quyền xem (theo rule service).")
     @GetMapping
     public ListResponse<FolderResponse> list() {
         String userId = SecurityUtils.currentUserId();
@@ -52,9 +61,13 @@ public class FolderController {
         return new ListResponse<>(items);
     }
 
+    @Operation(
+            summary = "Gắn Telegram supergroup chat id",
+            description = "Áp dụng cho root shareable — id chat nhóm (-100…) để client đồng bộ message.")
     @PutMapping("/{id}/telegram-chat")
     public ResponseEntity<?> setTelegramChat(
-            @PathVariable String id, @Valid @RequestBody SetFolderTelegramChatRequest body) {
+            @Parameter(description = "UUID folder (thường là root shareable)") @PathVariable String id,
+            @Valid @RequestBody SetFolderTelegramChatRequest body) {
         String userId = SecurityUtils.currentUserId();
         try {
             return ResponseEntity.ok(FolderResponse.from(folderService.setTelegramChatId(userId, id, body.telegramChatId())));
@@ -65,8 +78,10 @@ public class FolderController {
         }
     }
 
+    @Operation(summary = "Gỡ Telegram chat id khỏi folder", description = "Xóa telegram_chat_id trên root shareable.")
     @DeleteMapping("/{id}/telegram-chat")
-    public ResponseEntity<?> clearTelegramChat(@PathVariable String id) {
+    public ResponseEntity<?> clearTelegramChat(
+            @Parameter(description = "UUID folder root shareable") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
             return ResponseEntity.ok(FolderResponse.from(folderService.clearTelegramChatId(userId, id)));
@@ -77,8 +92,11 @@ public class FolderController {
         }
     }
 
+    @Operation(summary = "Đổi tên folder", description = "409 nếu trùng tên trong cùng parent.")
     @PutMapping("/{id}")
-    public ResponseEntity<?> rename(@PathVariable String id, @Valid @RequestBody RenameFolderRequest body) {
+    public ResponseEntity<?> rename(
+            @Parameter(description = "UUID folder") @PathVariable String id,
+            @Valid @RequestBody RenameFolderRequest body) {
         String userId = SecurityUtils.currentUserId();
         try {
             return ResponseEntity.ok(FolderResponse.from(folderService.rename(userId, id, body.name())));
@@ -89,8 +107,11 @@ public class FolderController {
         }
     }
 
+    @Operation(
+            summary = "Xóa folder",
+            description = "409 nếu còn ràng buộc (vd. có con / conflict).")
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable String id) {
+    public ResponseEntity<?> delete(@Parameter(description = "UUID folder") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
             folderService.delete(userId, id);
@@ -104,8 +125,9 @@ public class FolderController {
         }
     }
 
+    @Operation(summary = "Danh sách thành viên folder", description = "Thành viên được mời vào archive chia sẻ (root shareable).")
     @GetMapping("/{id}/members")
-    public ResponseEntity<?> listMembers(@PathVariable String id) {
+    public ResponseEntity<?> listMembers(@Parameter(description = "UUID folder (root shareable)") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
             var items =
@@ -118,8 +140,13 @@ public class FolderController {
         }
     }
 
+    @Operation(
+            summary = "Thêm thành viên",
+            description = "Thêm user (internal id) vào folder shareable. 409 nếu đã là thành viên.")
     @PostMapping("/{id}/members")
-    public ResponseEntity<?> addMember(@PathVariable String id, @Valid @RequestBody AddFolderMemberRequest body) {
+    public ResponseEntity<?> addMember(
+            @Parameter(description = "UUID folder root shareable") @PathVariable String id,
+            @Valid @RequestBody AddFolderMemberRequest body) {
         String userId = SecurityUtils.currentUserId();
         try {
             var m = folderService.addMember(userId, id, body.userId());
@@ -133,8 +160,11 @@ public class FolderController {
         }
     }
 
+    @Operation(summary = "Xóa thành viên", description = "Gỡ user khỏi folder shareable.")
     @DeleteMapping("/{id}/members/{memberUserId}")
-    public ResponseEntity<?> removeMember(@PathVariable String id, @PathVariable String memberUserId) {
+    public ResponseEntity<?> removeMember(
+            @Parameter(description = "UUID folder") @PathVariable String id,
+            @Parameter(description = "UUID user (internal) cần gỡ") @PathVariable String memberUserId) {
         String userId = SecurityUtils.currentUserId();
         try {
             folderService.removeMember(userId, id, memberUserId);
@@ -146,5 +176,6 @@ public class FolderController {
         }
     }
 
+    @Schema(name = "FolderError", description = "Lỗi 400/404/409 — message từ server")
     public record ErrorBody(String error) {}
 }

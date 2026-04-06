@@ -6,6 +6,7 @@ import com.nitro.tech.cloud.service.UserAccountService;
 import com.nitro.tech.cloud.web.dto.AuthResponse;
 import com.nitro.tech.cloud.web.dto.TelegramLoginRequest;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
+@Tag(name = "Auth", description = "Đăng nhập Telegram (không cần API key / JWT trên endpoint này)")
 public class AuthController {
 
     private final UserAccountService userAccountService;
@@ -30,7 +32,12 @@ public class AuthController {
         this.telegramClientRulesService = telegramClientRulesService;
     }
 
-    @Operation(security = {})
+    @Operation(
+            summary = "Đăng nhập qua Telegram",
+            description =
+                    "Client gửi Telegram user id (và các field tùy chọn). Server tin tưởng id — không verify hash widget. "
+                            + "Trả về JWT dùng cho các API khác (header Authorization: Bearer).",
+            security = {})
     @PostMapping("/telegram")
     public ResponseEntity<AuthResponse> telegram(@Valid @RequestBody TelegramLoginRequest body) {
         String telegramUserId = String.valueOf(body.id());
