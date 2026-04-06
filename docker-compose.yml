@@ -1,0 +1,27 @@
+# Local PostgreSQL for 1cloud-be (matches default DATABASE_* in application.yml).
+# Usage: docker compose up -d
+# JDBC: jdbc:postgresql://localhost:5432/telegram_drive
+#
+# Wipe all data (e.g. after Flyway script renames / clean migrate): docker compose down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: 1cloud-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-telegram_drive}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - 1cloud_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  1cloud_pgdata:

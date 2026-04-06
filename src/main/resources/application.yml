@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: 1cloud-be
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/telegram_drive}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+
+  jpa:
+    hibernate:
+      # Schema exclusively from Flyway; Hibernate does not create/update/validate DDL (Boot runs Flyway before JPA).
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# API key: required on all requests except GET /health and OPTIONS (CORS). Client sends header X-API-Key.
+app:
+  api:
+    key: ${API_KEY:change-me-api-key-for-local-dev}
+    header-name: X-API-Key
+
+  jwt:
+    secret: ${JWT_SECRET:change-me-use-at-least-32-chars!!}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+
+  # Rules pushed to clients (GET /config/telegram + login). No Bot API for files — user Telegram + groups.
+  telegram:
+    client:
+      schema-version: 4
+      integration:
+        file-storage-model: telegram_user_client
+        policy-note: >-
+          Do not use Bot API in the client for file storage. Use the logged-in user's Telegram session and normal chats/supergroups. Auth endpoint does not verify Telegram widget hash; client-supplied telegram user id is trusted.
+      max-upload-bytes: 2147483648
+      recommended-chunk-bytes: 1048576
+      upload-retry-max: 3
+      bot-username: ${TELEGRAM_BOT_USERNAME:}
+
+      upload-routing:
+        private-archive:
+          storage-context: self_chat_saved_messages_or_cloud
+          description: >-
+            Private archive: store files in the user's own Telegram space (Saved Messages / self chat) via user session, not Bot API.
+        shared-group:
+          storage-context: telegram_supergroup
+          description: >-
+            Shareable archive: invite collaborators into the same Telegram supergroup as real users; files are normal group messages accessible to members per Telegram.
+          members-must-join-telegram-supergroup: true
+
+      archive-group:
+        group-title-mandatory-prefix: nitro-tech-cloud-
+        group-title-template: nitro-tech-cloud-{segment}-{suffix}
+        segment-meaning: numeric_or_short_archive_identifier
+        example-title: nitro-tech-cloud-123-team-alpha
+        group-title-client-validation-regex: '^nitro-tech-cloud-[0-9]+-[a-zA-Z0-9._-]+$'
+        max-group-title-length: 128
+        telegram-group-type: supergroup
+        client-onboarding-hint: >-
+          Create a Telegram supergroup, set the title using the template, invite every collaborator (they must join as users). Link supergroup chat_id to the shareable root in the app. No bot required in the group for this storage model.
