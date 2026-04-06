@@ -42,6 +42,10 @@ app:
     secret: ${JWT_SECRET:change-me-use-at-least-32-chars!!}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
+  invite:
+    # Deep link or web URL; query params folder_id and telegram_chat_id are appended (RFC 3986 encoded).
+    base-url: ${INVITE_BASE_URL:nitro-tech-cloud://invite}
+
   # Rules pushed to clients (GET /config/telegram + login). No Bot API for files — user Telegram + groups.
   telegram:
     client:

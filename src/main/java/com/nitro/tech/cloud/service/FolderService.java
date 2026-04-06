@@ -1,11 +1,14 @@
 package com.nitro.tech.cloud.service;
 
+import com.nitro.tech.cloud.config.InviteProperties;
 import com.nitro.tech.cloud.domain.Folder;
 import com.nitro.tech.cloud.domain.FolderMember;
 import com.nitro.tech.cloud.repository.FolderMemberRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.repository.UserRepository;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,18 +26,21 @@ public class FolderService {
     private final FolderMemberRepository folderMemberRepository;
     private final FolderAccessService folderAccessService;
     private final UserRepository userRepository;
+    private final InviteProperties inviteProperties;
 
     public FolderService(
             FolderRepository folderRepository,
             StoredFileRepository storedFileRepository,
             FolderMemberRepository folderMemberRepository,
             FolderAccessService folderAccessService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            InviteProperties inviteProperties) {
         this.folderRepository = folderRepository;
         this.storedFileRepository = storedFileRepository;
         this.folderMemberRepository = folderMemberRepository;
         this.folderAccessService = folderAccessService;
         this.userRepository = userRepository;
+        this.inviteProperties = inviteProperties;
     }
 
     @Transactional(readOnly = true)
@@ -51,6 +57,33 @@ public class FolderService {
         return merged.values().stream()
                 .sorted(Comparator.comparing(Folder::getCreatedAt))
                 .toList();
+    }
+
+    /**
+     * Builds invite payload for a shareable archive: backend root folder id + Telegram supergroup id. Only the tree
+     * owner may call; {@code folderId} may be any node in that tree.
+     */
+    @Transactional(readOnly = true)
+    public ArchiveInviteLink buildArchiveInviteLink(String actorId, String folderId) {
+        if (!folderAccessService.canAccessFolder(actorId, folderId)) {
+            throw new NotFoundException("Folder not found");
+        }
+        Folder folder = folderRepository.findById(folderId).orElseThrow(() -> new NotFoundException("Folder not found"));
+        String rootId = folder.getRootFolderId() != null ? folder.getRootFolderId() : folder.getId();
+        Folder root = folderRepository.findById(rootId).orElseThrow(() -> new NotFoundException("Folder not found"));
+        if (!root.isRoot() || !root.isShareable()) {
+            throw new IllegalArgumentException("Invite links are only for shareable archive roots");
+        }
+        if (!folderAccessService.isTreeOwner(actorId, root)) {
+            throw new NotFoundException("Folder not found");
+        }
+        String chatId = root.getTelegramChatId();
+        if (chatId == null || chatId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Set telegram_chat_id on the shareable root before creating an invite link");
+        }
+        String url = buildInviteUrl(inviteProperties.getBaseUrl(), root.getId(), chatId.trim());
+        return new ArchiveInviteLink(url, root.getId(), chatId.trim());
     }
 
     @Transactional
@@ -246,5 +279,22 @@ public class FolderService {
         }
         String s = raw.trim();
         return s.isEmpty() ? null : s;
+    }
+
+    private static String buildInviteUrl(String baseUrlRaw, String folderId, String telegramChatId) {
+        if (baseUrlRaw == null) {
+            return null;
+        }
+        String base = baseUrlRaw.trim();
+        if (base.isEmpty()) {
+            return null;
+        }
+        String sep = base.contains("?") ? "&" : "?";
+        return base
+                + sep
+                + "folder_id="
+                + URLEncoder.encode(folderId, StandardCharsets.UTF_8)
+                + "&telegram_chat_id="
+                + URLEncoder.encode(telegramChatId, StandardCharsets.UTF_8);
     }
 }

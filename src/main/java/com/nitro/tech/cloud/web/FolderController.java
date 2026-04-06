@@ -4,6 +4,7 @@ import com.nitro.tech.cloud.service.ConflictException;
 import com.nitro.tech.cloud.service.FolderService;
 import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.web.dto.AddFolderMemberRequest;
+import com.nitro.tech.cloud.web.dto.ArchiveInviteLinkResponse;
 import com.nitro.tech.cloud.web.dto.CreateFolderRequest;
 import com.nitro.tech.cloud.web.dto.FolderMemberResponse;
 import com.nitro.tech.cloud.web.dto.FolderResponse;
@@ -59,6 +60,24 @@ public class FolderController {
         String userId = SecurityUtils.currentUserId();
         var items = folderService.list(userId).stream().map(FolderResponse::from).toList();
         return new ListResponse<>(items);
+    }
+
+    @Operation(
+            summary = "Link mời archive (Telegram group + folder backend)",
+            description =
+                    "Chỉ owner archive shareable. Cần đã gắn telegram_chat_id trên root. "
+                            + "{id} có thể là bất kỳ folder trong cây — response luôn dùng UUID root backend.")
+    @GetMapping("/{id}/invite-link")
+    public ResponseEntity<?> inviteLink(
+            @Parameter(description = "UUID folder (bất kỳ node trong cây shareable)") @PathVariable String id) {
+        String userId = SecurityUtils.currentUserId();
+        try {
+            return ResponseEntity.ok(ArchiveInviteLinkResponse.from(folderService.buildArchiveInviteLink(userId, id)));
+        } catch (NotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
+        }
     }
 
     @Operation(

@@ -54,6 +54,7 @@ Public endpoints (no API key, no JWT):
 - `DELETE /folders/{id}` - delete folder
 - `PUT /folders/{id}/telegram-chat` - set `telegram_chat_id`
 - `DELETE /folders/{id}/telegram-chat` - clear `telegram_chat_id`
+- `GET /folders/{id}/invite-link` - build invite deep link (shareable archive owner; needs `telegram_chat_id` on root)
 - `GET /folders/{id}/members` - list folder members
 - `POST /folders/{id}/members` - add member
 - `DELETE /folders/{id}/members/{memberUserId}` - remove member
@@ -141,6 +142,22 @@ Notes:
 
 - Each user can create only **one** private root folder (`parent_id = null` and `shareable = false`).
 - Creating another private root folder for the same user returns `409` with an error message.
+
+## `GET /folders/{id}/invite-link`
+
+Protected (API key + JWT). **Owner only** for a **shareable** archive root; root must already have `telegram_chat_id`. Path `{id}` may be any folder in that tree — the response always uses the **backend root** `folder_id`.
+
+Response (example):
+
+```json
+{
+  "invite_url": "nitro-tech-cloud://invite?folder_id=folder-uuid&telegram_chat_id=-1001234567890",
+  "folder_id": "folder-uuid",
+  "telegram_chat_id": "-1001234567890"
+}
+```
+
+Override the URL prefix with env `INVITE_BASE_URL` (see `app.invite.base-url` in `application.yml`). If `base-url` is empty, `invite_url` is `null` and clients can use `folder_id` + `telegram_chat_id` from JSON.
 
 ## `POST /files/metadata`
 
