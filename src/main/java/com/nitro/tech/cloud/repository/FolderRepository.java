@@ -10,6 +10,8 @@ public interface FolderRepository extends JpaRepository<Folder, String> {
 
     List<Folder> findByUserIdOrderByCreatedAtAsc(String userId);
 
+    List<Folder> findByParentId(String parentId);
+
     long countByUserIdAndParentId(String userId, String parentId);
 
     long countByUserIdAndParentIdIsNull(String userId);

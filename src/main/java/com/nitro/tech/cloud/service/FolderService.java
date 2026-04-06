@@ -6,6 +6,8 @@ import com.nitro.tech.cloud.repository.FolderMemberRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.repository.UserRepository;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -130,12 +132,24 @@ public class FolderService {
         if (f.isRoot() && !folderAccessService.isTreeOwner(userId, f)) {
             throw new IllegalArgumentException("Only the archive owner can delete the root folder");
         }
-        long subfolders = folderRepository.countByUserIdAndParentId(f.getUserId(), folderId);
-        long files = storedFileRepository.countByFolderId(folderId);
-        if (subfolders > 0 || files > 0) {
-            throw new ConflictException("Folder is not empty");
-        }
+        List<String> subtreeFolderIds = collectSubtreeFolderIds(folderId);
+        storedFileRepository.deleteByFolderIdIn(subtreeFolderIds);
         folderRepository.deleteById(folderId);
+    }
+
+    /** BFS: this folder and all descendants (DB deletes children via {@code parent_id} CASCADE). */
+    private List<String> collectSubtreeFolderIds(String rootFolderId) {
+        ArrayDeque<String> queue = new ArrayDeque<>();
+        queue.add(rootFolderId);
+        List<String> ids = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            String id = queue.removeFirst();
+            ids.add(id);
+            for (Folder child : folderRepository.findByParentId(id)) {
+                queue.add(child.getId());
+            }
+        }
+        return ids;
     }
 
     @Transactional(readOnly = true)

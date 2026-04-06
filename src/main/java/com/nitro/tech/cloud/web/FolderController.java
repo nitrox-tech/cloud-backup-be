@@ -109,7 +109,7 @@ public class FolderController {
 
     @Operation(
             summary = "Xóa folder",
-            description = "409 nếu còn ràng buộc (vd. có con / conflict).")
+            description = "Xóa folder và toàn bộ folder con; metadata file trong cây cũng bị xóa. Root chỉ owner mới xóa được.")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@Parameter(description = "UUID folder") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
