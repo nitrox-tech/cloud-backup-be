@@ -1,4 +1,7 @@
 target
+mvnw
+mvnw.cmd
+.mvn
 .git
 .gitignore
 .idea
