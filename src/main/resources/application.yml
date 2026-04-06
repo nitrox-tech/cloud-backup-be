@@ -2,16 +2,21 @@ spring:
   application:
     name: 1cloud-be
 
+  # --- Database (PostgreSQL + Hikari auto-config from spring-boot-starter-jdbc via JPA starter) ---
+  # Pool: Hikari (default). Transactions: Spring DataSourceTransactionManager + @Transactional (resource-local, not JTA).
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/telegram_drive}
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
       # Schema exclusively from Flyway; Hibernate does not create/update/validate DDL (Boot runs Flyway before JPA).
       ddl-auto: none
     open-in-view: false
+    database: postgresql
+    # Dialect + DDL provider are auto-detected for PostgreSQL; no need to set database-platform unless you must pin a version.
     properties:
       hibernate:
         jdbc:

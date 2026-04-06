@@ -28,8 +28,18 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
         if (HttpMethod.OPTIONS.matches(request.getMethod())) {
             return true;
         }
-        String path = request.getRequestURI();
-        return HttpMethod.GET.matches(request.getMethod()) && path.equals("/health");
+        String path = pathWithinApplication(request);
+        if (HttpMethod.GET.matches(request.getMethod()) && path.equals("/health")) {
+            return true;
+        }
+        if (HttpMethod.POST.matches(request.getMethod()) && path.equals("/auth/telegram")) {
+            return true;
+        }
+        // SpringDoc: HTML under /swagger-ui, JS/CSS often under /webjars (must allow both)
+        return path.startsWith("/swagger-ui")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/webjars/");
     }
 
     @Override
@@ -55,5 +65,15 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             return false;
         }
         return MessageDigest.isEqual(a, b);
+    }
+
+    /** Path for matching rules; strips {@code context-path} so it matches {@code WebSecurityCustomizer}. */
+    private static String pathWithinApplication(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String ctx = request.getContextPath();
+        if (ctx != null && !ctx.isEmpty() && uri.startsWith(ctx)) {
+            uri = uri.substring(ctx.length());
+        }
+        return uri.isEmpty() ? "/" : uri;
     }
 }
