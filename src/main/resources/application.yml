@@ -27,6 +27,11 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+# Swagger UI: remember Authorize values between refreshes (JWT + API key)
+springdoc:
+  swagger-ui:
+    persistAuthorization: true
+
 # API key: required on all requests except GET /health and OPTIONS (CORS). Client sends header X-API-Key.
 app:
   api:

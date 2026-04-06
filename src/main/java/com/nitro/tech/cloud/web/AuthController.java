@@ -5,6 +5,7 @@ import com.nitro.tech.cloud.service.TelegramClientRulesService;
 import com.nitro.tech.cloud.service.UserAccountService;
 import com.nitro.tech.cloud.web.dto.AuthResponse;
 import com.nitro.tech.cloud.web.dto.TelegramLoginRequest;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,6 +30,7 @@ public class AuthController {
         this.telegramClientRulesService = telegramClientRulesService;
     }
 
+    @Operation(security = {})
     @PostMapping("/telegram")
     public ResponseEntity<AuthResponse> telegram(@Valid @RequestBody TelegramLoginRequest body) {
         String telegramUserId = String.valueOf(body.id());
