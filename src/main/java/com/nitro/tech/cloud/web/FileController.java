@@ -5,6 +5,7 @@ import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
 import com.nitro.tech.cloud.web.dto.FileResponse;
 import com.nitro.tech.cloud.web.dto.ListResponse;
+import com.nitro.tech.cloud.web.dto.MoveFileRequest;
 import com.nitro.tech.cloud.web.dto.UpdateFileMetadataRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -98,6 +99,24 @@ public class FileController {
             return ResponseEntity.noContent().build();
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "Di chuyển file metadata",
+            description = "Chỉ file đang nằm trong folder shareable mới được move; chỉ move trong cùng cây shareable.")
+    @PutMapping("/{id}/move")
+    public ResponseEntity<?> move(
+            @Parameter(description = "UUID file metadata") @PathVariable String id,
+            @Valid @RequestBody MoveFileRequest body) {
+        String userId = SecurityUtils.currentUserId();
+        try {
+            var moved = fileMetadataService.moveIfAccessible(userId, id, body.folderId());
+            return ResponseEntity.ok(FileResponse.from(moved));
+        } catch (NotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         }
     }
 

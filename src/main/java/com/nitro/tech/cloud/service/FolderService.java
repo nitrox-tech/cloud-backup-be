@@ -88,14 +88,11 @@ public class FolderService {
 
     @Transactional
     public Folder create(String actorId, String name, String parentId, boolean shareable, String telegramChatIdRaw) {
-        if (shareable && parentId != null) {
-            throw new IllegalArgumentException("Only root folders can be shareable");
-        }
         String telegramChatId = normalizeOptionalTelegramChatId(telegramChatIdRaw);
-        if (telegramChatId != null && (!shareable || parentId != null)) {
+        if (telegramChatId != null && parentId != null) {
             throw new IllegalArgumentException("telegram_chat_id is only allowed on shareable root folders");
         }
-        if (!shareable && telegramChatId != null) {
+        if (!shareable && parentId == null && telegramChatId != null) {
             throw new IllegalArgumentException("telegram_chat_id is only for shareable archives");
         }
 
@@ -132,9 +129,44 @@ public class FolderService {
         f.setUserId(root.getUserId());
         f.setParentId(parentId);
         f.setRootFolderId(rootId);
-        f.setShareable(false);
+        f.setShareable(parent.isShareable());
         try {
             return folderRepository.save(f);
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("A folder with this name already exists here", e);
+        }
+    }
+
+    @Transactional
+    public Folder move(String actorId, String folderId, String targetParentId) {
+        Folder source = folderRepository.findById(folderId).orElseThrow(() -> new NotFoundException("Folder not found"));
+        if (!folderAccessService.canAccessFolder(actorId, folderId)) {
+            throw new NotFoundException("Folder not found");
+        }
+        if (source.isRoot()) {
+            throw new IllegalArgumentException("Cannot move root folder");
+        }
+        if (!source.isShareable()) {
+            throw new IllegalArgumentException("Only folders inside shareable trees can be moved");
+        }
+        Folder targetParent =
+                folderRepository.findById(targetParentId).orElseThrow(() -> new IllegalArgumentException("Parent folder not found"));
+        if (!folderAccessService.canAccessFolder(actorId, targetParentId)) {
+            throw new IllegalArgumentException("Parent folder not found");
+        }
+        if (!targetParent.isShareable()) {
+            throw new IllegalArgumentException("Target parent must be in a shareable tree");
+        }
+        if (folderId.equals(targetParentId) || isDescendantOf(source.getId(), targetParent.getId())) {
+            throw new IllegalArgumentException("Cannot move a folder into itself or its descendants");
+        }
+        if (!sameRoot(source, targetParent)) {
+            throw new IllegalArgumentException("Move is only allowed inside the same tree");
+        }
+        source.setParentId(targetParentId);
+        source.setShareable(targetParent.isShareable());
+        try {
+            return folderRepository.save(source);
         } catch (DataIntegrityViolationException e) {
             throw new ConflictException("A folder with this name already exists here", e);
         }
@@ -279,6 +311,23 @@ public class FolderService {
         }
         String s = raw.trim();
         return s.isEmpty() ? null : s;
+    }
+
+    private boolean isDescendantOf(String ancestorId, String nodeId) {
+        Folder cursor = folderRepository.findById(nodeId).orElse(null);
+        while (cursor != null && cursor.getParentId() != null) {
+            if (ancestorId.equals(cursor.getParentId())) {
+                return true;
+            }
+            cursor = folderRepository.findById(cursor.getParentId()).orElse(null);
+        }
+        return false;
+    }
+
+    private static boolean sameRoot(Folder left, Folder right) {
+        String leftRoot = left.getRootFolderId() != null ? left.getRootFolderId() : left.getId();
+        String rightRoot = right.getRootFolderId() != null ? right.getRootFolderId() : right.getId();
+        return leftRoot.equals(rightRoot);
     }
 
     private static String buildInviteUrl(String baseUrlRaw, String folderId, String telegramChatId) {

@@ -9,6 +9,7 @@ import com.nitro.tech.cloud.web.dto.CreateFolderRequest;
 import com.nitro.tech.cloud.web.dto.FolderMemberResponse;
 import com.nitro.tech.cloud.web.dto.FolderResponse;
 import com.nitro.tech.cloud.web.dto.ListResponse;
+import com.nitro.tech.cloud.web.dto.MoveFolderRequest;
 import com.nitro.tech.cloud.web.dto.RenameFolderRequest;
 import com.nitro.tech.cloud.web.dto.SetFolderTelegramChatRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -121,6 +122,26 @@ public class FolderController {
             return ResponseEntity.ok(FolderResponse.from(folderService.rename(userId, id, body.name())));
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+        } catch (ConflictException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorBody(e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "Di chuyển folder",
+            description =
+                    "Không cho phép move root. Chỉ folder trong cây shareable mới được move, và chỉ move trong cùng cây shareable.")
+    @PutMapping("/{id}/move")
+    public ResponseEntity<?> move(
+            @Parameter(description = "UUID folder") @PathVariable String id,
+            @Valid @RequestBody MoveFolderRequest body) {
+        String userId = SecurityUtils.currentUserId();
+        try {
+            return ResponseEntity.ok(FolderResponse.from(folderService.move(userId, id, body.parentId())));
+        } catch (NotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         } catch (ConflictException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorBody(e.getMessage()));
         }

@@ -1,6 +1,7 @@
 package com.nitro.tech.cloud.service;
 
 import com.nitro.tech.cloud.domain.StoredFile;
+import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
 import java.util.List;
@@ -11,10 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class FileMetadataService {
 
     private final StoredFileRepository storedFileRepository;
+    private final FolderRepository folderRepository;
     private final FolderAccessService folderAccessService;
 
-    public FileMetadataService(StoredFileRepository storedFileRepository, FolderAccessService folderAccessService) {
+    public FileMetadataService(
+            StoredFileRepository storedFileRepository,
+            FolderRepository folderRepository,
+            FolderAccessService folderAccessService) {
         this.storedFileRepository = storedFileRepository;
+        this.folderRepository = folderRepository;
         this.folderAccessService = folderAccessService;
     }
 
@@ -77,6 +83,35 @@ public class FileMetadataService {
         storedFileRepository.delete(file);
     }
 
+    @Transactional
+    public StoredFile moveIfAccessible(String userId, String fileId, String targetFolderId) {
+        StoredFile file = storedFileRepository.findById(fileId).orElseThrow(() -> new NotFoundException("Not found"));
+        if (!folderAccessService.canAccessFile(userId, file)) {
+            throw new NotFoundException("Not found");
+        }
+        if (file.getFolderId() == null) {
+            throw new IllegalArgumentException("Only files inside shareable folders can be moved");
+        }
+        var sourceFolder =
+                folderRepository.findById(file.getFolderId()).orElseThrow(() -> new IllegalArgumentException("Source folder not found"));
+        if (!sourceFolder.isShareable()) {
+            throw new IllegalArgumentException("Only files inside shareable folders can be moved");
+        }
+        if (!folderAccessService.canAccessFolder(userId, targetFolderId)) {
+            throw new IllegalArgumentException("Target folder not found");
+        }
+        var targetFolder =
+                folderRepository.findById(targetFolderId).orElseThrow(() -> new IllegalArgumentException("Target folder not found"));
+        if (!targetFolder.isShareable()) {
+            throw new IllegalArgumentException("Target folder must be in a shareable tree");
+        }
+        if (!sameRoot(sourceFolder.getRootFolderId(), sourceFolder.getId(), targetFolder.getRootFolderId(), targetFolder.getId())) {
+            throw new IllegalArgumentException("Move is only allowed inside the same tree");
+        }
+        file.setFolderId(targetFolderId);
+        return storedFileRepository.save(file);
+    }
+
     private static void validateChunks(FileMetadataRequest req) {
         boolean any = req.chunkGroupId() != null || req.chunkIndex() != null || req.chunkTotal() != null;
         if (!any) {
@@ -88,5 +123,11 @@ public class FileMetadataService {
         if (req.chunkIndex() < 0 || req.chunkTotal() <= 0 || req.chunkIndex() >= req.chunkTotal()) {
             throw new IllegalArgumentException("Invalid chunk range");
         }
+    }
+
+    private static boolean sameRoot(String leftRootId, String leftId, String rightRootId, String rightId) {
+        String leftRoot = leftRootId != null ? leftRootId : leftId;
+        String rightRoot = rightRootId != null ? rightRootId : rightId;
+        return leftRoot.equals(rightRoot);
     }
 }

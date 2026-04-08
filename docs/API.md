@@ -40,6 +40,7 @@ Public endpoints (no API key, no JWT):
 ### Auth
 
 - `POST /auth/telegram` - login/upsert user, returns JWT and Telegram client rules
+  - For newly created users, server auto-creates one private root folder named `Private Folder` (`shareable=false`).
 
 ### Telegram Client Config
 
@@ -51,6 +52,7 @@ Public endpoints (no API key, no JWT):
 - `POST /folders` - create folder
 - `GET /folders` - list accessible folders
 - `PUT /folders/{id}` - rename folder
+- `PUT /folders/{id}/move` - move folder to another parent
 - `DELETE /folders/{id}` - delete folder
 - `PUT /folders/{id}/telegram-chat` - set `telegram_chat_id`
 - `DELETE /folders/{id}/telegram-chat` - clear `telegram_chat_id`
@@ -65,6 +67,7 @@ Public endpoints (no API key, no JWT):
 - `GET /files` - list file metadata (optional `folder_id`)
 - `GET /files/{id}` - get file metadata
 - `PUT /files/{id}` - update file metadata name
+- `PUT /files/{id}/move` - move file metadata to another folder
 - `DELETE /files/{id}` - delete file metadata
 
 ---
@@ -108,6 +111,10 @@ Notes:
 
 - Server currently trusts client-sent Telegram user id.
 - `access_token` is the value to put into `Authorization: Bearer ...`.
+- On first login (new user record), backend auto-creates a private root folder:
+  - `name = "Private Folder"`
+  - `parent_id = null`
+  - `shareable = false`
 
 ## `POST /folders`
 
@@ -142,6 +149,29 @@ Notes:
 
 - Each user can create only **one** private root folder (`parent_id = null` and `shareable = false`).
 - Creating another private root folder for the same user returns `409` with an error message.
+- If creating a root folder (`parent_id = null`), folder type is decided by request field `shareable`.
+- If creating a subfolder (`parent_id != null`), `shareable` is inherited from parent folder (request `shareable` is ignored for this case).
+- `telegram_chat_id` is only accepted for shareable root folders.
+
+## `PUT /folders/{id}/move`
+
+Request:
+
+```json
+{
+  "parent_id": "target-parent-folder-uuid"
+}
+```
+
+Rules:
+
+- Cannot move root folder.
+- Only folders in `shareable=true` trees can be moved.
+- Target parent must also be in a `shareable=true` tree.
+- Move is only allowed inside the same root tree.
+- Cannot move a folder into itself or into one of its descendants.
+
+Response: same schema as `FolderResponse`.
 
 ## `GET /folders/{id}/invite-link`
 
@@ -156,6 +186,24 @@ Response (example):
   "telegram_chat_id": "-1001234567890"
 }
 ```
+
+## `PUT /files/{id}/move`
+
+Request:
+
+```json
+{
+  "folder_id": "target-folder-uuid"
+}
+```
+
+Rules:
+
+- Only files already located in a `shareable=true` folder can be moved.
+- Target folder must be in a `shareable=true` tree.
+- Move is only allowed inside the same root tree.
+
+Response: same schema as `FileResponse`.
 
 Override the URL prefix with env `INVITE_BASE_URL` (see `app.invite.base-url` in `application.yml`). If `base-url` is empty, `invite_url` is `null` and clients can use `folder_id` + `telegram_chat_id` from JSON.
 
