@@ -2,11 +2,14 @@ package com.nitro.tech.cloud.repository;
 
 import com.nitro.tech.cloud.domain.FolderMember;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FolderMemberRepository extends JpaRepository<FolderMember, String> {
 
     boolean existsByFolderIdAndUserId(String folderId, String userId);
+
+    Optional<FolderMember> findByFolderIdAndUserId(String folderId, String userId);
 
     List<FolderMember> findByFolderIdOrderByCreatedAtAsc(String folderId);
 

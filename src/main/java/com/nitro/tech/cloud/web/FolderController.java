@@ -4,10 +4,10 @@ import com.nitro.tech.cloud.service.ConflictException;
 import com.nitro.tech.cloud.service.FolderService;
 import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.web.dto.AddFolderMemberRequest;
-import com.nitro.tech.cloud.web.dto.ArchiveInviteLinkResponse;
 import com.nitro.tech.cloud.web.dto.CreateFolderRequest;
 import com.nitro.tech.cloud.web.dto.FolderMemberResponse;
 import com.nitro.tech.cloud.web.dto.FolderResponse;
+import com.nitro.tech.cloud.web.dto.JoinByInviteCodeRequest;
 import com.nitro.tech.cloud.web.dto.ListResponse;
 import com.nitro.tech.cloud.web.dto.MoveFolderRequest;
 import com.nitro.tech.cloud.web.dto.RenameFolderRequest;
@@ -64,20 +64,37 @@ public class FolderController {
     }
 
     @Operation(
-            summary = "Link mời archive (Telegram group + folder backend)",
+            summary = "Tạo invite code cho archive shareable",
             description =
-                    "Chỉ owner archive shareable. Cần đã gắn telegram_chat_id trên root. "
+                    "Chỉ owner archive shareable mới tạo được. "
                             + "{id} có thể là bất kỳ folder trong cây — response luôn dùng UUID root backend.")
-    @GetMapping("/{id}/invite-link")
-    public ResponseEntity<?> inviteLink(
+    @PostMapping("/{id}/invite-code")
+    public ResponseEntity<?> createInviteCode(
             @Parameter(description = "UUID folder (bất kỳ node trong cây shareable)") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
-            return ResponseEntity.ok(ArchiveInviteLinkResponse.from(folderService.buildArchiveInviteLink(userId, id)));
+            return ResponseEntity.status(HttpStatus.CREATED).body(folderService.createArchiveInviteCode(userId, id).getCode());
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "Join archive bằng invite code",
+            description = "Chỉ cần invite code hợp lệ là có thể join archive shareable.")
+    @PostMapping("/join-by-invite-code")
+    public ResponseEntity<?> joinByInviteCode(@Valid @RequestBody JoinByInviteCodeRequest body) {
+        String userId = SecurityUtils.currentUserId();
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(FolderMemberResponse.from(folderService.joinByInviteCode(userId, body.inviteCode())));
+        } catch (NotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
+        } catch (ConflictException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorBody(e.getMessage()));
         }
     }
 
