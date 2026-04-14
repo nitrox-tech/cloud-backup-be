@@ -154,9 +154,7 @@ public class FolderService {
         if (!folderAccessService.canAccessFolder(actorId, targetParentId)) {
             throw new IllegalArgumentException("Parent folder not found");
         }
-        if (!targetParent.isShareable()) {
-            throw new IllegalArgumentException("Target parent must be in a shareable tree");
-        }
+
         if (folderId.equals(targetParentId) || isDescendantOf(source.getId(), targetParent.getId())) {
             throw new IllegalArgumentException("Cannot move a folder into itself or its descendants");
         }
