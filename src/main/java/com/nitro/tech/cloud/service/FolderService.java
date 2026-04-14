@@ -7,13 +7,11 @@ import com.nitro.tech.cloud.repository.FolderMemberRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.repository.UserRepository;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -140,17 +138,19 @@ public class FolderService {
     @Transactional
     public Folder move(String actorId, String folderId, String targetParentId) {
         Folder source = folderRepository.findById(folderId).orElseThrow(() -> new NotFoundException("Folder not found"));
+        Folder targetParent =
+                folderRepository.findById(targetParentId).orElseThrow(() -> new IllegalArgumentException("Parent folder not found"));
+
         if (!folderAccessService.canAccessFolder(actorId, folderId)) {
             throw new NotFoundException("Folder not found");
         }
         if (source.isRoot()) {
             throw new IllegalArgumentException("Cannot move root folder");
         }
-        if (!source.isShareable()) {
-            throw new IllegalArgumentException("Only folders inside shareable trees can be moved");
+        if (!Objects.equals(source.getRootFolderId(), targetParent.getRootFolderId())) {
+            throw new IllegalArgumentException("Only directories inside a root folder can be moved.");
         }
-        Folder targetParent =
-                folderRepository.findById(targetParentId).orElseThrow(() -> new IllegalArgumentException("Parent folder not found"));
+
         if (!folderAccessService.canAccessFolder(actorId, targetParentId)) {
             throw new IllegalArgumentException("Parent folder not found");
         }
@@ -202,7 +202,9 @@ public class FolderService {
         folderRepository.deleteById(folderId);
     }
 
-    /** BFS: this folder and all descendants (DB deletes children via {@code parent_id} CASCADE). */
+    /**
+     * BFS: this folder and all descendants (DB deletes children via {@code parent_id} CASCADE).
+     */
     private List<String> collectSubtreeFolderIds(String rootFolderId) {
         ArrayDeque<String> queue = new ArrayDeque<>();
         queue.add(rootFolderId);
@@ -273,7 +275,9 @@ public class FolderService {
         return root;
     }
 
-    /** Owner-only: set the Telegram supergroup / chat id on a shareable root (opaque string). */
+    /**
+     * Owner-only: set the Telegram supergroup / chat id on a shareable root (opaque string).
+     */
     @Transactional
     public Folder setTelegramChatId(String actorId, String folderId, String telegramChatIdRaw) {
         Folder root = loadShareableRootForTelegramChat(actorId, folderId);
@@ -281,7 +285,9 @@ public class FolderService {
         return folderRepository.save(root);
     }
 
-    /** Owner-only: remove {@code telegram_chat_id} from a shareable root. */
+    /**
+     * Owner-only: remove {@code telegram_chat_id} from a shareable root.
+     */
     @Transactional
     public Folder clearTelegramChatId(String actorId, String folderId) {
         Folder root = loadShareableRootForTelegramChat(actorId, folderId);
