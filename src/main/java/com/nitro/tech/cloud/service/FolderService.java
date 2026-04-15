@@ -129,6 +129,7 @@ public class FolderService {
         f.setUserId(root.getUserId());
         f.setParentId(parentId);
         f.setRootFolderId(rootId);
+        f.setTelegramChatId(root.getTelegramChatId());
         f.setShareable(parent.isShareable());
         try {
             return folderRepository.save(f);
