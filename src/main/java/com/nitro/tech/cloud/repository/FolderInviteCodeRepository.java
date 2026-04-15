@@ -9,4 +9,6 @@ public interface FolderInviteCodeRepository extends JpaRepository<FolderInviteCo
     boolean existsByCode(String code);
 
     Optional<FolderInviteCode> findByCode(String code);
+
+    Optional<FolderInviteCode> findByIdAndCode(String id, String code);
 }

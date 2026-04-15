@@ -56,8 +56,9 @@ Public endpoints (no API key, no JWT):
 - `DELETE /folders/{id}` - delete folder
 - `PUT /folders/{id}/telegram-chat` - set `telegram_chat_id`
 - `DELETE /folders/{id}/telegram-chat` - clear `telegram_chat_id`
-- `POST /folders/{id}/invite-code` - tạo mã mời (owner archive shareable)
-- `POST /folders/join-by-invite-code` - join archive bằng mã mời hợp lệ
+- `POST /folders/{id}/invites` - tạo invite (owner archive shareable)
+- `POST /folder-invites/verify` - verify invite code trước khi join Telegram
+- `POST /folder-invites/finalize-join` - finalize join backend sau khi join Telegram
 - `GET /folders/{id}/members` - list folder members
 - `POST /folders/{id}/members` - add member
 - `DELETE /folders/{id}/members/{memberUserId}` - remove member
@@ -174,24 +175,37 @@ Rules:
 
 Response: same schema as `FolderResponse`.
 
-## `POST /folders/{id}/invite-code`
+## `POST /folders/{id}/invites`
 
 Protected (API key + JWT). **Owner only** for a **shareable** archive root. Path `{id}` may be any folder in that tree.
+
+Request (example):
+
+```json
+{
+  "telegram_join_link": "https://t.me/+yourInviteLink",
+  "expires_at": "2026-04-20T12:00:00Z"
+}
+```
 
 Response (example):
 
 ```json
-"9K7M2QX4TP"
+{
+  "invite_id": "invite-uuid",
+  "invite_code": "9K7M2QX4TP",
+  "folder_id": "folder-root-uuid",
+  "folder_name": "Team Shared",
+  "telegram_join_link": "https://t.me/+yourInviteLink",
+  "invite_url": "nitro-tech-cloud://invite?folder_id=...&telegram_chat_id=...&telegram_join_link=...",
+  "expires_at": "2026-04-20T12:00:00Z",
+  "created_at": "2026-04-16T10:00:00Z"
+}
 ```
 
-Notes:
+## `POST /folder-invites/verify`
 
-- Response body là **plain JSON string** (không phải object).
-- Server luôn tạo code gắn với **root shareable folder** của cây chứa `{id}`.
-
-## `POST /folders/join-by-invite-code`
-
-Protected (API key + JWT). Người dùng chỉ cần gửi invite code hợp lệ để join archive.
+Protected (API key + JWT). Kiểm tra invite trước khi app thực hiện join Telegram.
 
 Request:
 
@@ -201,14 +215,60 @@ Request:
 }
 ```
 
+Response (valid):
+
+```json
+{
+  "valid": true,
+  "invite_id": "invite-uuid",
+  "invite_code": "9K7M2QX4TP",
+  "invite_url": "nitro-tech-cloud://invite?folder_id=...&telegram_chat_id=...&telegram_join_link=...",
+  "telegram_join_link": "https://t.me/+yourInviteLink",
+  "expires_at": "2026-04-20T12:00:00Z",
+  "folder_id": "folder-root-uuid",
+  "folder_name": "Team Shared",
+  "telegram_chat_id": "-1001234567890"
+}
+```
+
+Response (invalid/expired):
+
+```json
+{
+  "valid": false,
+  "reason": "Invite code expired"
+}
+```
+
+## `POST /folder-invites/finalize-join`
+
+Protected (API key + JWT). Finalize join backend sau khi app join Telegram thành công.
+
+Request:
+
+```json
+{
+  "invite_code": "9K7M2QX4TP",
+  "invite_id": "invite-uuid",
+  "telegram_join_proof": {
+    "chat_id": "-1001234567890"
+  }
+}
+```
+
 Response:
 
 ```json
 {
-  "id": "membership-uuid",
-  "folder_id": "folder-uuid",
-  "user_id": "internal-user-uuid",
-  "created_at": "2026-04-06T12:10:00Z"
+  "joined": true,
+  "folder": {
+    "id": "folder-root-uuid",
+    "name": "Team Shared"
+  },
+  "membership": {
+    "role": "member",
+    "joined_at": "2026-04-16T10:05:00Z"
+  }
 }
 ```
 

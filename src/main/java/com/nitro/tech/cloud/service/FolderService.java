@@ -1,5 +1,6 @@
 package com.nitro.tech.cloud.service;
 
+import com.nitro.tech.cloud.config.InviteProperties;
 import com.nitro.tech.cloud.domain.Folder;
 import com.nitro.tech.cloud.domain.FolderInviteCode;
 import com.nitro.tech.cloud.domain.FolderMember;
@@ -9,11 +10,13 @@ import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.repository.UserRepository;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.*;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Service
 public class FolderService {
@@ -24,6 +27,7 @@ public class FolderService {
     private final FolderInviteCodeRepository folderInviteCodeRepository;
     private final FolderAccessService folderAccessService;
     private final UserRepository userRepository;
+    private final InviteProperties inviteProperties;
     private static final String INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int INVITE_CODE_LENGTH = 10;
     private static final int INVITE_CODE_RETRY_LIMIT = 6;
@@ -35,13 +39,15 @@ public class FolderService {
             FolderMemberRepository folderMemberRepository,
             FolderInviteCodeRepository folderInviteCodeRepository,
             FolderAccessService folderAccessService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            InviteProperties inviteProperties) {
         this.folderRepository = folderRepository;
         this.storedFileRepository = storedFileRepository;
         this.folderMemberRepository = folderMemberRepository;
         this.folderInviteCodeRepository = folderInviteCodeRepository;
         this.folderAccessService = folderAccessService;
         this.userRepository = userRepository;
+        this.inviteProperties = inviteProperties;
     }
 
     @Transactional(readOnly = true)
@@ -60,14 +66,23 @@ public class FolderService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public Folder loadRootById(String folderId) {
+        return folderRepository.findById(folderId).orElseThrow(() -> new NotFoundException("Folder not found"));
+    }
+
     @Transactional
-    public FolderInviteCode createArchiveInviteCode(String actorId, String folderId) {
+    public FolderInviteCode createArchiveInviteCode(String actorId, String folderId, String telegramJoinLinkRaw, Instant expiresAt) {
         if (!folderAccessService.canAccessFolder(actorId, folderId)) {
             throw new NotFoundException("Folder not found");
         }
         Folder root = loadShareableRootOrThrow(folderId);
         if (!folderAccessService.isTreeOwner(actorId, root)) {
             throw new NotFoundException("Folder not found");
+        }
+        String telegramJoinLink = normalizeRequiredTelegramJoinLink(telegramJoinLinkRaw);
+        if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
+            throw new IllegalArgumentException("expires_at must be in the future");
         }
         for (int i = 0; i < INVITE_CODE_RETRY_LIMIT; i++) {
             String code = randomInviteCode();
@@ -78,20 +93,58 @@ public class FolderService {
             inviteCode.setCode(code);
             inviteCode.setFolderId(root.getId());
             inviteCode.setCreatedByUserId(actorId);
+            inviteCode.setTelegramJoinLink(telegramJoinLink);
+            inviteCode.setExpiresAt(expiresAt);
             return folderInviteCodeRepository.save(inviteCode);
         }
         throw new ConflictException("Cannot generate invite code right now, please retry");
     }
 
     @Transactional
-    public FolderMember joinByInviteCode(String actorId, String inviteCodeRaw) {
+    public InviteVerificationResult verifyInviteCode(String inviteCodeRaw) {
         if (inviteCodeRaw == null || inviteCodeRaw.isBlank()) {
             throw new IllegalArgumentException("Invite code is required");
         }
         String normalizedCode = inviteCodeRaw.trim().toUpperCase(Locale.ROOT);
-        FolderInviteCode inviteCode = folderInviteCodeRepository
-                .findByCode(normalizedCode)
+        Optional<FolderInviteCode> inviteCodeOpt = folderInviteCodeRepository.findByCode(normalizedCode);
+        if (inviteCodeOpt.isEmpty()) {
+            return InviteVerificationResult.invalid("Invite code not found");
+        }
+        FolderInviteCode inviteCode = inviteCodeOpt.get();
+        if (isInviteExpired(inviteCode)) {
+            return InviteVerificationResult.invalid("Invite code expired");
+        }
+        Folder root = folderRepository
+                .findById(inviteCode.getFolderId())
                 .orElseThrow(() -> new NotFoundException("Invite code not found"));
+        if (!root.isRoot() || !root.isShareable()) {
+            throw new IllegalArgumentException("Invite code is only valid for shareable root archives");
+        }
+        return InviteVerificationResult.valid(inviteCode, root, buildInviteUrl(root, inviteCode.getTelegramJoinLink()));
+    }
+
+    @Transactional
+    public FinalizeJoinResult finalizeJoinByInviteCode(
+            String actorId, String inviteCodeRaw, String inviteId, String telegramProofChatIdRaw) {
+        if (inviteCodeRaw == null || inviteCodeRaw.isBlank()) {
+            throw new IllegalArgumentException("Invite code is required");
+        }
+        if (inviteId == null || inviteId.isBlank()) {
+            throw new IllegalArgumentException("invite_id is required");
+        }
+        if (telegramProofChatIdRaw == null || telegramProofChatIdRaw.isBlank()) {
+            throw new IllegalArgumentException("telegram_join_proof.chat_id is required");
+        }
+
+        String normalizedCode = inviteCodeRaw.trim().toUpperCase(Locale.ROOT);
+        String normalizedInviteId = inviteId.trim();
+        String telegramProofChatId = telegramProofChatIdRaw.trim();
+        FolderInviteCode inviteCode = folderInviteCodeRepository
+                .findByIdAndCode(normalizedInviteId, normalizedCode)
+                .orElseThrow(() -> new NotFoundException("Invite code not found"));
+        if (isInviteExpired(inviteCode)) {
+            throw new IllegalArgumentException("Invite code expired");
+        }
         Folder root = folderRepository
                 .findById(inviteCode.getFolderId())
                 .orElseThrow(() -> new NotFoundException("Invite code not found"));
@@ -101,9 +154,17 @@ public class FolderService {
         if (Objects.equals(root.getUserId(), actorId)) {
             throw new IllegalArgumentException("Archive owner already has access");
         }
-        return folderMemberRepository
-                .findByFolderIdAndUserId(root.getId(), actorId)
-                .orElseGet(() -> createFolderMember(root.getId(), actorId));
+        if (root.getTelegramChatId() == null || root.getTelegramChatId().isBlank()) {
+            throw new IllegalArgumentException("Archive root has no telegram_chat_id configured");
+        }
+        if (!root.getTelegramChatId().trim().equals(telegramProofChatId)) {
+            throw new IllegalArgumentException("telegram_join_proof.chat_id does not match archive chat");
+        }
+        if (folderMemberRepository.existsByFolderIdAndUserId(root.getId(), actorId)) {
+            throw new ConflictException("User is already in this archive");
+        }
+        FolderMember member = createFolderMember(root.getId(), actorId);
+        return new FinalizeJoinResult(true, root, member);
     }
 
     @Transactional
@@ -333,6 +394,30 @@ public class FolderService {
         return s.isEmpty() ? null : s;
     }
 
+    private static String normalizeRequiredTelegramJoinLink(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new IllegalArgumentException("telegram_join_link is required");
+        }
+        return raw.trim();
+    }
+
+    private boolean isInviteExpired(FolderInviteCode inviteCode) {
+        return inviteCode.getExpiresAt() != null && !inviteCode.getExpiresAt().isAfter(Instant.now());
+    }
+
+    private String buildInviteUrl(Folder root, String telegramJoinLink) {
+        String baseUrl = inviteProperties.getBaseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return null;
+        }
+        return UriComponentsBuilder.fromUriString(baseUrl.trim())
+                .queryParam("folder_id", root.getId())
+                .queryParam("telegram_chat_id", root.getTelegramChatId())
+                .queryParam("telegram_join_link", telegramJoinLink)
+                .build()
+                .toUriString();
+    }
+
     private boolean isDescendantOf(String ancestorId, String nodeId) {
         Folder cursor = folderRepository.findById(nodeId).orElse(null);
         while (cursor != null && cursor.getParentId() != null) {
@@ -369,4 +454,21 @@ public class FolderService {
         }
         return sb.toString();
     }
+
+    public record InviteVerificationResult(
+            boolean valid,
+            String reason,
+            FolderInviteCode inviteCode,
+            Folder rootFolder,
+            String inviteUrl) {
+        public static InviteVerificationResult valid(FolderInviteCode inviteCode, Folder rootFolder, String inviteUrl) {
+            return new InviteVerificationResult(true, null, inviteCode, rootFolder, inviteUrl);
+        }
+
+        public static InviteVerificationResult invalid(String reason) {
+            return new InviteVerificationResult(false, reason, null, null, null);
+        }
+    }
+
+    public record FinalizeJoinResult(boolean joined, Folder rootFolder, FolderMember membership) {}
 }

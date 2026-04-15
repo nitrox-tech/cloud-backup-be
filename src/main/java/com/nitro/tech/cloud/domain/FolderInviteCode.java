@@ -32,6 +32,12 @@ public class FolderInviteCode {
     @Column(name = "created_by_user_id", nullable = false, length = 36)
     private String createdByUserId;
 
+    @Column(name = "telegram_join_link", length = 1000)
+    private String telegramJoinLink;
+
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
