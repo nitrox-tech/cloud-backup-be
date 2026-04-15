@@ -5,6 +5,8 @@ import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
 import java.util.List;
+import java.util.Objects;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -94,16 +96,13 @@ public class FileMetadataService {
         }
         var sourceFolder =
                 folderRepository.findById(file.getFolderId()).orElseThrow(() -> new IllegalArgumentException("Source folder not found"));
-        if (!sourceFolder.isShareable()) {
-            throw new IllegalArgumentException("Only files inside shareable folders can be moved");
+        var targetFolder =
+                folderRepository.findById(targetFolderId).orElseThrow(() -> new IllegalArgumentException("Target folder not found"));
+        if (!Objects.equals(sourceFolder.getRootFolderId(), targetFolder.getRootFolderId())) {
+            throw new IllegalArgumentException("Only directories inside a root folder can be moved.");
         }
         if (!folderAccessService.canAccessFolder(userId, targetFolderId)) {
             throw new IllegalArgumentException("Target folder not found");
-        }
-        var targetFolder =
-                folderRepository.findById(targetFolderId).orElseThrow(() -> new IllegalArgumentException("Target folder not found"));
-        if (!targetFolder.isShareable()) {
-            throw new IllegalArgumentException("Target folder must be in a shareable tree");
         }
         if (!sameRoot(sourceFolder.getRootFolderId(), sourceFolder.getId(), targetFolder.getRootFolderId(), targetFolder.getId())) {
             throw new IllegalArgumentException("Move is only allowed inside the same tree");

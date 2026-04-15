@@ -56,7 +56,8 @@ Public endpoints (no API key, no JWT):
 - `DELETE /folders/{id}` - delete folder
 - `PUT /folders/{id}/telegram-chat` - set `telegram_chat_id`
 - `DELETE /folders/{id}/telegram-chat` - clear `telegram_chat_id`
-- `GET /folders/{id}/invite-link` - build invite deep link (shareable archive owner; needs `telegram_chat_id` on root)
+- `POST /folders/{id}/invite-code` - tạo mã mời (owner archive shareable)
+- `POST /folders/join-by-invite-code` - join archive bằng mã mời hợp lệ
 - `GET /folders/{id}/members` - list folder members
 - `POST /folders/{id}/members` - add member
 - `DELETE /folders/{id}/members/{memberUserId}` - remove member
@@ -173,17 +174,41 @@ Rules:
 
 Response: same schema as `FolderResponse`.
 
-## `GET /folders/{id}/invite-link`
+## `POST /folders/{id}/invite-code`
 
-Protected (API key + JWT). **Owner only** for a **shareable** archive root; root must already have `telegram_chat_id`. Path `{id}` may be any folder in that tree — the response always uses the **backend root** `folder_id`.
+Protected (API key + JWT). **Owner only** for a **shareable** archive root. Path `{id}` may be any folder in that tree.
 
 Response (example):
 
 ```json
+"9K7M2QX4TP"
+```
+
+Notes:
+
+- Response body là **plain JSON string** (không phải object).
+- Server luôn tạo code gắn với **root shareable folder** của cây chứa `{id}`.
+
+## `POST /folders/join-by-invite-code`
+
+Protected (API key + JWT). Người dùng chỉ cần gửi invite code hợp lệ để join archive.
+
+Request:
+
+```json
 {
-  "invite_url": "nitro-tech-cloud://invite?folder_id=folder-uuid&telegram_chat_id=-1001234567890",
+  "invite_code": "9K7M2QX4TP"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "membership-uuid",
   "folder_id": "folder-uuid",
-  "telegram_chat_id": "-1001234567890"
+  "user_id": "internal-user-uuid",
+  "created_at": "2026-04-06T12:10:00Z"
 }
 ```
 
@@ -204,8 +229,6 @@ Rules:
 - Move is only allowed inside the same root tree.
 
 Response: same schema as `FileResponse`.
-
-Override the URL prefix with env `INVITE_BASE_URL` (see `app.invite.base-url` in `application.yml`). If `base-url` is empty, `invite_url` is `null` and clients can use `folder_id` + `telegram_chat_id` from JSON.
 
 ## `POST /files/metadata`
 
