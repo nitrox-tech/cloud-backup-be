@@ -13,10 +13,7 @@ public record FileMetadataRequest(
         @NotBlank @JsonProperty("file_name") @Schema(description = "Tên hiển thị") String fileName,
         @NotNull @Min(0) @JsonProperty("file_size") @Schema(description = "Kích thước byte") Long fileSize,
         @JsonProperty("mime_type") @Schema(description = "MIME, mặc định application/octet-stream") String mimeType,
-        @JsonProperty("folder_id") @Schema(description = "UUID folder chứa file") String folderId,
-        @JsonProperty("chunk_group_id") @Schema(description = "Nhóm chunk (cùng file chia nhỏ)") String chunkGroupId,
-        @JsonProperty("chunk_index") @Schema(description = "Chỉ số chunk (0-based)") Integer chunkIndex,
-        @JsonProperty("chunk_total") @Schema(description = "Tổng số chunk") Integer chunkTotal) {
+        @JsonProperty("folder_id") @Schema(description = "UUID folder chứa file") String folderId) {
 
     public FileMetadataRequest {
         if (mimeType == null || mimeType.isBlank()) {

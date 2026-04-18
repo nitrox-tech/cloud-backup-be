@@ -1,12 +1,13 @@
 package com.nitro.tech.cloud.service;
 
+import com.nitro.tech.cloud.domain.Folder;
 import com.nitro.tech.cloud.domain.StoredFile;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
+import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
 import java.util.List;
 import java.util.Objects;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +29,6 @@ public class FileMetadataService {
 
     @Transactional
     public StoredFile save(String userId, FileMetadataRequest req) {
-        validateChunks(req);
         if (req.folderId() != null && !folderAccessService.canAccessFolder(userId, req.folderId())) {
             throw new IllegalArgumentException("Folder not found");
         }
@@ -40,9 +40,6 @@ public class FileMetadataService {
         f.setFileSize(req.fileSize());
         f.setMimeType(req.mimeType());
         f.setFolderId(req.folderId());
-        f.setChunkGroupId(req.chunkGroupId());
-        f.setChunkIndex(req.chunkIndex());
-        f.setChunkTotal(req.chunkTotal());
         return storedFileRepository.save(f);
     }
 
@@ -111,17 +108,26 @@ public class FileMetadataService {
         return storedFileRepository.save(file);
     }
 
-    private static void validateChunks(FileMetadataRequest req) {
-        boolean any = req.chunkGroupId() != null || req.chunkIndex() != null || req.chunkTotal() != null;
-        if (!any) {
-            return;
+    /** Same JSON shape as file rows in {@code GET /clouds/private} / public workspace listings. */
+    @Transactional(readOnly = true)
+    public CloudEntryResponse toCloudEntry(StoredFile file) {
+        String rootFolderId = resolveRootFolderIdForFile(file);
+        return CloudEntryResponse.forFile(
+                file.getId(),
+                file.getFileName(),
+                rootFolderId,
+                file.getCreatedAt(),
+                String.valueOf(file.getFileSize()),
+                file.getMimeType(),
+                file.getMessageId(),
+                file.getTelegramFileId());
+    }
+
+    private String resolveRootFolderIdForFile(StoredFile file) {
+        if (file.getFolderId() == null) {
+            return null;
         }
-        if (req.chunkGroupId() == null || req.chunkIndex() == null || req.chunkTotal() == null) {
-            throw new IllegalArgumentException("chunk_group_id, chunk_index, and chunk_total must be set together");
-        }
-        if (req.chunkIndex() < 0 || req.chunkTotal() <= 0 || req.chunkIndex() >= req.chunkTotal()) {
-            throw new IllegalArgumentException("Invalid chunk range");
-        }
+        return folderRepository.findById(file.getFolderId()).map(Folder::effectiveRootFolderId).orElse(null);
     }
 
     private static boolean sameRoot(String leftRootId, String leftId, String rightRootId, String rightId) {

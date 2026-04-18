@@ -3,7 +3,6 @@ package com.nitro.tech.cloud.web;
 import com.nitro.tech.cloud.service.FileMetadataService;
 import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
-import com.nitro.tech.cloud.web.dto.FileResponse;
 import com.nitro.tech.cloud.web.dto.ListResponse;
 import com.nitro.tech.cloud.web.dto.MoveFileRequest;
 import com.nitro.tech.cloud.web.dto.UpdateFileMetadataRequest;
@@ -26,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/files")
-@Tag(name = "Files", description = "Metadata file (Telegram message_id, chunk, …). Cần API key + JWT")
+@Tag(name = "Files", description = "Metadata file (Telegram message_id, …). Cần API key + JWT")
 public class FileController {
 
     private final FileMetadataService fileMetadataService;
@@ -37,13 +36,13 @@ public class FileController {
 
     @Operation(
             summary = "Tạo metadata file",
-            description = "Lưu thông tin file đã gửi lên Telegram (message_id, telegram_file_id, folder, chunk…).")
+            description = "Lưu thông tin file đã gửi lên Telegram (message_id, telegram_file_id, folder…).")
     @PostMapping("/metadata")
     public ResponseEntity<?> createMetadata(@Valid @RequestBody FileMetadataRequest body) {
         String userId = SecurityUtils.currentUserId();
         try {
             var saved = fileMetadataService.save(userId, body);
-            return ResponseEntity.status(HttpStatus.CREATED).body(FileResponse.from(saved));
+            return ResponseEntity.status(HttpStatus.CREATED).body(fileMetadataService.toCloudEntry(saved));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         }
@@ -58,7 +57,8 @@ public class FileController {
                     String folderId) {
         String userId = SecurityUtils.currentUserId();
         try {
-            var items = fileMetadataService.list(userId, folderId).stream().map(FileResponse::from).toList();
+            var items =
+                    fileMetadataService.list(userId, folderId).stream().map(fileMetadataService::toCloudEntry).toList();
             return ResponseEntity.ok(new ListResponse<>(items));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
@@ -70,7 +70,8 @@ public class FileController {
     public ResponseEntity<?> get(@Parameter(description = "UUID file metadata") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
-            return ResponseEntity.ok(FileResponse.from(fileMetadataService.getIfAccessible(userId, id)));
+            return ResponseEntity.ok(
+                    fileMetadataService.toCloudEntry(fileMetadataService.getIfAccessible(userId, id)));
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
         }
@@ -84,7 +85,7 @@ public class FileController {
         String userId = SecurityUtils.currentUserId();
         try {
             var updated = fileMetadataService.updateIfAccessible(userId, id, body.fileName());
-            return ResponseEntity.ok(FileResponse.from(updated));
+            return ResponseEntity.ok(fileMetadataService.toCloudEntry(updated));
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
         }
@@ -112,7 +113,7 @@ public class FileController {
         String userId = SecurityUtils.currentUserId();
         try {
             var moved = fileMetadataService.moveIfAccessible(userId, id, body.folderId());
-            return ResponseEntity.ok(FileResponse.from(moved));
+            return ResponseEntity.ok(fileMetadataService.toCloudEntry(moved));
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
         } catch (IllegalArgumentException e) {

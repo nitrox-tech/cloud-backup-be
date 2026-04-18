@@ -288,7 +288,7 @@ Rules:
 - Target folder must be in a `shareable=true` tree.
 - Move is only allowed inside the same root tree.
 
-Response: same schema as `FileResponse`.
+Response: same schema as `CloudEntryResponse` (file row, like `GET /files` items).
 
 ## `POST /files/metadata`
 
@@ -301,29 +301,24 @@ Request:
   "file_name": "report.pdf",
   "file_size": 345678,
   "mime_type": "application/pdf",
-  "folder_id": "folder-uuid",
-  "chunk_group_id": null,
-  "chunk_index": null,
-  "chunk_total": null
+  "folder_id": "folder-uuid"
 }
 ```
 
-Response (example):
+Response (example — cùng shape `CloudEntryResponse` với file trong `GET /clouds/private`):
 
 ```json
 {
+  "is_folder": false,
+  "child_number": 0,
   "id": "file-meta-uuid",
-  "user_id": "internal-user-uuid",
-  "message_id": "12345",
-  "telegram_file_id": "AgACAgUAAxkBAAIB...",
-  "file_name": "report.pdf",
-  "file_size": "345678",
+  "name": "report.pdf",
+  "root_folder_id": "root-folder-uuid",
+  "created_at": "2026-04-06T12:05:00Z",
   "mime_type": "application/pdf",
-  "folder_id": "folder-uuid",
-  "chunk_group_id": null,
-  "chunk_index": null,
-  "chunk_total": null,
-  "created_at": "2026-04-06T12:05:00Z"
+  "file_size": "345678",
+  "message_id": "12345",
+  "telegram_file_id": "AgACAgUAAxkBAAIB..."
 }
 ```
 
@@ -424,7 +419,7 @@ curl -X POST "http://localhost:8080/files/metadata" \
 ## AI Usage Notes
 
 - Treat IDs as opaque strings unless explicitly numeric (`TelegramLoginRequest.id` is numeric).
-- `file_size` in `FileResponse` is string (by current DTO implementation), but request uses numeric.
+- `file_size` in `CloudEntryResponse` (file row) is string, but `POST /files/metadata` request uses numeric `file_size`.
 - Telegram file bytes are not served by this backend; this service stores metadata and access rules.
 - For business semantics of Telegram routing, also read:
   - `docs/TELEGRAM_CLIENT_RULES.md`

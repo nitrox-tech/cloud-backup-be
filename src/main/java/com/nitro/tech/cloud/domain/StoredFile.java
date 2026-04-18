@@ -45,15 +45,6 @@ public class StoredFile {
     @Column(name = "folder_id", length = 36)
     private String folderId;
 
-    @Column(name = "chunk_group_id", length = 36)
-    private String chunkGroupId;
-
-    @Column(name = "chunk_index")
-    private Integer chunkIndex;
-
-    @Column(name = "chunk_total")
-    private Integer chunkTotal;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

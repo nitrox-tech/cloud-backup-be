@@ -65,6 +65,11 @@ public class Folder {
         return parentId == null;
     }
 
+    /** Tree root id for listings and access; on persisted roots equals {@link #id}. */
+    public String effectiveRootFolderId() {
+        return rootFolderId != null ? rootFolderId : id;
+    }
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
