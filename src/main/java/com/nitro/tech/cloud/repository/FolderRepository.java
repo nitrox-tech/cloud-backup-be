@@ -9,8 +9,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface FolderRepository extends JpaRepository<Folder, String> {
 
-    List<Folder> findByUserIdOrderByCreatedAtAsc(String userId);
-
     List<Folder> findByParentId(String parentId);
 
     /**
@@ -37,19 +35,5 @@ public interface FolderRepository extends JpaRepository<Folder, String> {
 
     long countByParentId(String parentId);
 
-    long countByUserIdAndParentId(String userId, String parentId);
-
-    long countByUserIdAndParentIdIsNull(String userId);
-
     long countByUserIdAndParentIdIsNullAndShareableFalse(String userId);
-
-    /** All folders belonging to archive trees where the user is an explicit member (shareable roots only). */
-    @Query(
-            """
-            SELECT f FROM Folder f
-            WHERE f.rootFolderId IN (
-                SELECT m.folderId FROM FolderMember m WHERE m.userId = :userId
-            )
-            """)
-    List<Folder> findAllInSharedTrees(@Param("userId") String userId);
 }

@@ -52,22 +52,6 @@ public class FolderService {
     }
 
     @Transactional(readOnly = true)
-    public List<Folder> list(String userId) {
-        List<Folder> owned = folderRepository.findByUserIdOrderByCreatedAtAsc(userId);
-        List<Folder> shared = folderRepository.findAllInSharedTrees(userId);
-        LinkedHashMap<String, Folder> merged = new LinkedHashMap<>();
-        for (Folder f : owned) {
-            merged.put(f.getId(), f);
-        }
-        for (Folder f : shared) {
-            merged.putIfAbsent(f.getId(), f);
-        }
-        return merged.values().stream()
-                .sorted(Comparator.comparing(Folder::getCreatedAt))
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
     public Folder loadRootById(String folderId) {
         return folderRepository.findById(folderId).orElseThrow(() -> new NotFoundException("Folder not found"));
     }
@@ -282,11 +266,14 @@ public class FolderService {
         }
         List<String> subtreeFolderIds = collectSubtreeFolderIds(folderId);
         storedFileRepository.deleteByFolderIdIn(subtreeFolderIds);
+        folderMemberRepository.deleteByFolderIdIn(subtreeFolderIds);
         folderRepository.deleteById(folderId);
     }
 
     /**
-     * BFS: this folder and all descendants (DB deletes children via {@code parent_id} CASCADE).
+     * BFS: this folder and all descendants (DB deletes remaining child folders via {@code parent_id} CASCADE after the
+     * top row is removed). Used to delete files and {@code folder_members} for every id in the subtree before removing
+     * the root row of the delete.
      */
     private List<String> collectSubtreeFolderIds(String rootFolderId) {
         ArrayDeque<String> queue = new ArrayDeque<>();

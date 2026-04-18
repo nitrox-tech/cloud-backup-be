@@ -6,7 +6,6 @@ import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
-import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,17 +49,6 @@ public class FileMetadataService {
             throw new NotFoundException("Not found");
         }
         return file;
-    }
-
-    @Transactional(readOnly = true)
-    public List<StoredFile> list(String userId, String folderId) {
-        if (folderId == null) {
-            return storedFileRepository.findByUserIdAndFolderIdIsNullOrderByCreatedAtDesc(userId);
-        }
-        if (!folderAccessService.canAccessFolder(userId, folderId)) {
-            throw new IllegalArgumentException("Folder not found");
-        }
-        return storedFileRepository.findByFolderIdOrderByCreatedAtDesc(folderId);
     }
 
     @Transactional
