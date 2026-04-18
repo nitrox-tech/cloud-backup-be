@@ -8,7 +8,6 @@ import com.nitro.tech.cloud.repository.FolderInviteCodeRepository;
 import com.nitro.tech.cloud.repository.FolderMemberRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
-import com.nitro.tech.cloud.repository.UserRepository;
 import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -27,7 +26,6 @@ public class FolderService {
     private final FolderMemberRepository folderMemberRepository;
     private final FolderInviteCodeRepository folderInviteCodeRepository;
     private final FolderAccessService folderAccessService;
-    private final UserRepository userRepository;
     private final InviteProperties inviteProperties;
     private static final String INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int INVITE_CODE_LENGTH = 10;
@@ -40,14 +38,12 @@ public class FolderService {
             FolderMemberRepository folderMemberRepository,
             FolderInviteCodeRepository folderInviteCodeRepository,
             FolderAccessService folderAccessService,
-            UserRepository userRepository,
             InviteProperties inviteProperties) {
         this.folderRepository = folderRepository;
         this.storedFileRepository = storedFileRepository;
         this.folderMemberRepository = folderMemberRepository;
         this.folderInviteCodeRepository = folderInviteCodeRepository;
         this.folderAccessService = folderAccessService;
-        this.userRepository = userRepository;
         this.inviteProperties = inviteProperties;
     }
 
@@ -296,24 +292,6 @@ public class FolderService {
             throw new NotFoundException("Folder not found");
         }
         return folderMemberRepository.findByFolderIdOrderByCreatedAtAsc(root.getId());
-    }
-
-    @Transactional
-    public FolderMember addMember(String actorId, String rootFolderId, String memberUserId) {
-        Folder root = loadShareableRootOrThrow(rootFolderId);
-        if (!folderAccessService.isTreeOwner(actorId, root)) {
-            throw new NotFoundException("Folder not found");
-        }
-        if (memberUserId.equals(root.getUserId())) {
-            throw new IllegalArgumentException("Archive owner is already a member implicitly");
-        }
-        if (!userRepository.existsById(memberUserId)) {
-            throw new IllegalArgumentException("User not found");
-        }
-        if (folderMemberRepository.existsByFolderIdAndUserId(root.getId(), memberUserId)) {
-            throw new ConflictException("User is already in this archive");
-        }
-        return createFolderMember(root.getId(), memberUserId);
     }
 
     @Transactional

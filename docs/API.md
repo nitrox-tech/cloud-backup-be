@@ -52,12 +52,14 @@ Public endpoints (no API key, no JWT):
 - `POST /folders` - create folder (`telegram_chat_id` chỉ trên request khi tạo root shareable; không có API riêng set/clear chat sau tạo)
 - `PUT /folders/{id}` - rename folder → `CloudEntryResponse` (folder shallow)
 - `DELETE /folders/{id}` - delete folder (cascade subtree + file metadata trong cây)
-- `POST /folders/{id}/invites` - tạo invite (owner archive shareable)
-- `POST /folder-invites/verify` - verify invite code trước khi join Telegram
-- `POST /folder-invites/finalize-join` - finalize join backend sau khi join Telegram
-- `GET /folders/{id}/members` - list folder members
-- `POST /folders/{id}/members` - add member
-- `DELETE /folders/{id}/members/{memberUserId}` - remove member
+
+### Workspace invites (archive shareable)
+
+- `POST /workspace-invites/verify` - verify invite code trước khi join Telegram
+- `POST /workspace-invites/finalize-join` - finalize join sau khi join Telegram
+- `POST /workspace-invites/{workspaceId}/invites` - tạo invite (owner; `workspaceId` = root shareable hoặc folder trong cây)
+- `GET /workspace-invites/{workspaceId}/members` - danh sách member (owner)
+- `DELETE /workspace-invites/{workspaceId}/members/{memberUserId}` - gỡ member (owner). Thêm member chỉ qua invite + finalize-join.
 
 ### Files
 
@@ -185,9 +187,9 @@ Rules:
 
 Response: `CloudEntryResponse` — folder shallow (`is_folder: true`) hoặc file row (`is_folder: false`), cùng shape với `GET /clouds/private` / listing.
 
-## `POST /folders/{id}/invites`
+## `POST /workspace-invites/{workspaceId}/invites`
 
-Protected (API key + JWT). **Owner only** for a **shareable** archive root. Path `{id}` may be any folder in that tree.
+Protected (API key + JWT). **Owner only** for a **shareable** workspace. Path `{workspaceId}` may be the shareable root UUID or any folder in that tree (server resolves to root).
 
 Request (example):
 
@@ -213,7 +215,7 @@ Response (example):
 }
 ```
 
-## `POST /folder-invites/verify`
+## `POST /workspace-invites/verify`
 
 Protected (API key + JWT). Kiểm tra invite trước khi app thực hiện join Telegram.
 
@@ -250,7 +252,7 @@ Response (invalid/expired):
 }
 ```
 
-## `POST /folder-invites/finalize-join`
+## `POST /workspace-invites/finalize-join`
 
 Protected (API key + JWT). Finalize join backend sau khi app join Telegram thành công.
 
@@ -314,26 +316,13 @@ Response (example — cùng shape `CloudEntryResponse` với file trong `GET /cl
 }
 ```
 
-## `POST /folders/{id}/members`
+## `GET /workspace-invites/{workspaceId}/members`
 
-Request:
+Protected (API key + JWT). **Owner only.** Trả `{ "items": [ ... ] }` giống cấu trúc `ListResponse` trước đây; mỗi phần tử là metadata membership (`FolderMemberResponse`).
 
-```json
-{
-  "user_id": "internal-user-uuid-to-add"
-}
-```
+## `DELETE /workspace-invites/{workspaceId}/members/{memberUserId}`
 
-Response:
-
-```json
-{
-  "id": "membership-uuid",
-  "folder_id": "folder-uuid",
-  "user_id": "internal-user-uuid-to-add",
-  "created_at": "2026-04-06T12:10:00Z"
-}
-```
+Protected (API key + JWT). **Owner only.** `204` khi gỡ thành công.
 
 ---
 
