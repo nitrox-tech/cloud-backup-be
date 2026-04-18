@@ -2,6 +2,7 @@ package com.nitro.tech.cloud.web.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "Private root + một lớp children (không đệ quy sâu)")
+@Schema(description = "Một folder làm `root` + một lớp `children` (dùng cho GET /clouds/private và GET /clouds/folders/{id})")
 public record PrivateCloudTreeResponse(
-        @Schema(description = "Gốc private; `children` chỉ chứa folder/file trực tiếp trong root") CloudEntryResponse root) {}
+        @Schema(description = "`root` = folder được liệt kê; `children` chỉ chứa folder/file trực tiếp trong folder đó")
+                CloudEntryResponse root) {}

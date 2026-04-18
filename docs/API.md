@@ -70,7 +70,8 @@ Listing theo folder / tree: dùng `GET /clouds/private` hoặc `GET /clouds/publ
 
 ### Clouds
 
-- `GET /clouds/private` - private root + one layer of children
+- `GET /clouds/private` - private root + one layer of children (`PrivateCloudTreeResponse`)
+- `GET /clouds/folders/{id}` - any accessible folder + one layer of children (same shape as `/clouds/private`)
 - `GET /clouds/public-workspace` - shareable roots + one layer each
 - `PUT /clouds/entries/{id}/move` - move **file** or **folder** into `target_folder_id` (same `root_folder_id`; body có `is_folder`)
 
@@ -155,6 +156,12 @@ Notes:
 - If creating a root folder (`parent_id = null`), folder type is decided by request field `shareable`.
 - If creating a subfolder (`parent_id != null`), `shareable` is inherited from parent folder (request `shareable` is ignored for this case).
 - `telegram_chat_id` is only accepted for shareable root folders.
+
+## `GET /clouds/folders/{id}`
+
+Protected (API key + JWT). Folder bất kỳ user có quyền (`FolderAccessService`): response **`PrivateCloudTreeResponse`** giống `GET /clouds/private` — trường `root` là folder `{id}` kèm `children` một lớp (folder con shallow + file).
+
+`404` nếu folder không tồn tại hoặc không có quyền.
 
 ## `PUT /clouds/entries/{id}/move`
 

@@ -50,6 +50,16 @@ public class PrivateCloudService {
      * All shareable roots the user owns or is a member of — each with one layer of children (same JSON shape as
      * {@link #buildPrivateCloudTree} root).
      */
+    /**
+     * Bất kỳ folder nào user có quyền: cùng shape với {@link #buildPrivateCloudTree} — {@code root} = folder đó + một
+     * lớp {@code children}.
+     */
+    @Transactional(readOnly = true)
+    public PrivateCloudTreeResponse buildFolderDetail(String userId, String folderId) {
+        Folder folder = folderRepository.findById(folderId).orElseThrow(() -> new NotFoundException("Folder not found"));
+        return new PrivateCloudTreeResponse(buildOneLayerUnderFolder(userId, folder));
+    }
+
     @Transactional(readOnly = true)
     public PublicWorkspaceResponse buildPublicWorkspace(String userId) {
         LinkedHashMap<String, Folder> roots = new LinkedHashMap<>();

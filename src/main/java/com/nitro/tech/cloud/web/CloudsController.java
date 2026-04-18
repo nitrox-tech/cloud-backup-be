@@ -26,7 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/clouds")
 @Tag(
         name = "Clouds",
-        description = "API nhóm `/clouds` — private root, shareable workspace (listing), và move entry trong cùng cây")
+        description =
+                "API nhóm `/clouds` — private root, chi tiết folder + một lớp con, shareable workspace (listing), move entry")
 public class CloudsController {
 
     private final PrivateCloudService privateCloudService;
@@ -51,6 +52,17 @@ public class CloudsController {
     public PrivateCloudTreeResponse getPrivateCloud() {
         String userId = SecurityUtils.currentUserId();
         return privateCloudService.buildPrivateCloudTree(userId);
+    }
+
+    @Operation(
+            summary = "Chi tiết folder + một lớp con",
+            description =
+                    "GET `/clouds/folders/{id}`: folder bất kỳ user có quyền — cùng JSON với `GET /clouds/private` "
+                            + "(`root` = folder đích, `children` = một lớp folder/file con, không đệ quy).")
+    @GetMapping("/folders/{id}")
+    public PrivateCloudTreeResponse getFolderDetail(
+            @Parameter(description = "UUID folder") @PathVariable("id") String id) {
+        return privateCloudService.buildFolderDetail(SecurityUtils.currentUserId(), id);
     }
 
     @Operation(
