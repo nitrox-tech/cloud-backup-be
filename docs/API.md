@@ -5,7 +5,7 @@ This document is optimized for humans and AI agents to quickly understand and ca
 ## Base Info
 
 - Base URL (local): `http://localhost:8080`
-- Swagger UI: `GET /swagger-ui.html`
+- Swagger UI: `GET /swagger-ui/index.html` (hoặc `/swagger-ui.html` tùy phiên bản springdoc)
 - OpenAPI JSON: `GET /v3/api-docs`
 - Content type: `application/json`
 
@@ -44,17 +44,14 @@ Public endpoints (no API key, no JWT):
 
 ### Telegram Client Config
 
-- `GET /config/telegram` - full Telegram client rules snapshot
-- `GET /config/telegram/archive-group` - archive-group subset
+- `GET /config/telegram` - full Telegram client rules snapshot (API key + JWT)
+- `GET /config/telegram/archive-group` - archive-group subset (API key + JWT)
 
 ### Folders
 
-- `POST /folders` - create folder
-- `GET /folders` - list accessible folders
-- `PUT /folders/{id}` - rename folder
-- `DELETE /folders/{id}` - delete folder
-- `PUT /folders/{id}/telegram-chat` - set `telegram_chat_id`
-- `DELETE /folders/{id}/telegram-chat` - clear `telegram_chat_id`
+- `POST /folders` - create folder (`telegram_chat_id` chỉ trên request khi tạo root shareable; không có API riêng set/clear chat sau tạo)
+- `PUT /folders/{id}` - rename folder → `CloudEntryResponse` (folder shallow)
+- `DELETE /folders/{id}` - delete folder (cascade subtree + file metadata trong cây)
 - `POST /folders/{id}/invites` - tạo invite (owner archive shareable)
 - `POST /folder-invites/verify` - verify invite code trước khi join Telegram
 - `POST /folder-invites/finalize-join` - finalize join backend sau khi join Telegram
@@ -64,17 +61,20 @@ Public endpoints (no API key, no JWT):
 
 ### Files
 
-- `POST /files/metadata` - create file metadata
-- `GET /files` - list file metadata (optional `folder_id`)
-- `GET /files/{id}` - get file metadata
-- `PUT /files/{id}` - update file metadata name
+- `POST /files/metadata` - create file metadata → `CloudEntryResponse` (file row)
+- `GET /files/{id}` - get file metadata → `CloudEntryResponse`
+- `PUT /files/{id}` - update file metadata name → `CloudEntryResponse`
 - `DELETE /files/{id}` - delete file metadata
+
+Listing theo folder / tree: dùng `GET /clouds/private` hoặc `GET /clouds/public-workspace` (một lớp `children`), không có `GET /files` list riêng.
 
 ### Clouds
 
 - `GET /clouds/private` - private root + one layer of children
 - `GET /clouds/public-workspace` - shareable roots + one layer each
 - `PUT /clouds/entries/{id}/move` - move **file** or **folder** into `target_folder_id` (same `root_folder_id`; body có `is_folder`)
+
+Chi tiết từng method/path không đều có mục `##` riêng bên dưới; bổ sung đầy đủ luôn có trong **OpenAPI** (`GET /v3/api-docs`) và Swagger UI.
 
 ---
 
@@ -327,13 +327,6 @@ Response:
   "created_at": "2026-04-06T12:10:00Z"
 }
 ```
-
----
-
-## Query Parameters
-
-- `GET /files`
-  - `folder_id` (optional, string UUID)
 
 ---
 
