@@ -411,12 +411,21 @@ public class FolderService {
         long fls = storedFileRepository.countByFolderId(folder.getId());
         long total = dirs + fls;
         int childNumber = total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+        String treeChat = resolveTreeTelegramChatId(folder.effectiveRootFolderId());
         return CloudEntryResponse.forFolderShallow(
                 folder.getId(),
                 folder.getName(),
                 folder.effectiveRootFolderId(),
+                treeChat,
                 folder.getCreatedAt(),
                 childNumber);
+    }
+
+    private String resolveTreeTelegramChatId(String rootFolderId) {
+        if (rootFolderId == null) {
+            return null;
+        }
+        return folderRepository.findById(rootFolderId).map(Folder::getTelegramChatId).orElse(null);
     }
 
     private FolderMember createFolderMember(String folderId, String memberUserId) {

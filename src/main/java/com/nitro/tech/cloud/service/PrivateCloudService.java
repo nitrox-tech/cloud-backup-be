@@ -87,6 +87,7 @@ public class PrivateCloudService {
         }
 
         String rootId = folder.effectiveRootFolderId();
+        String treeTelegramChatId = resolveTreeTelegramChatId(rootId);
 
         List<Folder> subfolders =
                 folderRepository.findByParentIdAndRootFolderIdOrderByNameAsc(folder.getId(), rootId);
@@ -102,17 +103,24 @@ public class PrivateCloudService {
             if (!folderAccessService.canAccessFolder(userId, sub.getId())) {
                 continue;
             }
-            children.add(new PrivateCloudFolderShallowLeaf(sub, countDirectChildren(sub)));
+            children.add(new PrivateCloudFolderShallowLeaf(sub, countDirectChildren(sub), treeTelegramChatId));
         }
         for (StoredFile file : files) {
             if (!folderAccessService.canAccessFile(userId, file)) {
                 continue;
             }
-            children.add(new PrivateCloudFileLeaf(file, rootId));
+            children.add(new PrivateCloudFileLeaf(file, rootId, treeTelegramChatId));
         }
 
-        CloudComponent rootComposite = new PrivateCloudFolderComposite(folder, children);
+        CloudComponent rootComposite = new PrivateCloudFolderComposite(folder, children, treeTelegramChatId);
         return rootComposite.toResponse();
+    }
+
+    private String resolveTreeTelegramChatId(String rootFolderId) {
+        if (rootFolderId == null) {
+            return null;
+        }
+        return folderRepository.findById(rootFolderId).map(Folder::getTelegramChatId).orElse(null);
     }
 
     private int countDirectChildren(Folder folder) {

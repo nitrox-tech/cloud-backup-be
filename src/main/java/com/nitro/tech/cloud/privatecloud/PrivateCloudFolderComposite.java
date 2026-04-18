@@ -10,10 +10,13 @@ public final class PrivateCloudFolderComposite implements CloudComponent {
 
     private final Folder folder;
     private final List<CloudComponent> children;
+    /** {@link com.nitro.tech.cloud.domain.Folder#getTelegramChatId()} của root cây (có thể null). */
+    private final String treeTelegramChatId;
 
-    public PrivateCloudFolderComposite(Folder folder, List<CloudComponent> children) {
+    public PrivateCloudFolderComposite(Folder folder, List<CloudComponent> children, String treeTelegramChatId) {
         this.folder = folder;
         this.children = List.copyOf(new ArrayList<>(children));
+        this.treeTelegramChatId = treeTelegramChatId;
     }
 
     @Override
@@ -33,6 +36,7 @@ public final class PrivateCloudFolderComposite implements CloudComponent {
                 folder.getId(),
                 folder.getName(),
                 folder.effectiveRootFolderId(),
+                treeTelegramChatId,
                 folder.getCreatedAt(),
                 childDtos.size(),
                 childDtos);

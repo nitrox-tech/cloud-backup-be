@@ -9,10 +9,12 @@ public final class PrivateCloudFileLeaf implements CloudComponent {
     private final StoredFile file;
     /** Same as parent folder's tree root ({@link Folder#effectiveRootFolderId()}). */
     private final String rootFolderId;
+    private final String treeTelegramChatId;
 
-    public PrivateCloudFileLeaf(StoredFile file, String rootFolderId) {
+    public PrivateCloudFileLeaf(StoredFile file, String rootFolderId, String treeTelegramChatId) {
         this.file = file;
         this.rootFolderId = rootFolderId;
+        this.treeTelegramChatId = treeTelegramChatId;
     }
 
     @Override
@@ -31,6 +33,7 @@ public final class PrivateCloudFileLeaf implements CloudComponent {
                 file.getId(),
                 file.getFileName(),
                 rootFolderId,
+                treeTelegramChatId,
                 file.getCreatedAt(),
                 String.valueOf(file.getFileSize()),
                 file.getMimeType(),

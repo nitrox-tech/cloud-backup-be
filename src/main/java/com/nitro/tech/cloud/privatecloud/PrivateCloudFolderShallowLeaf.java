@@ -11,10 +11,12 @@ public final class PrivateCloudFolderShallowLeaf implements CloudComponent {
 
     private final Folder folder;
     private final int directChildCount;
+    private final String treeTelegramChatId;
 
-    public PrivateCloudFolderShallowLeaf(Folder folder, int directChildCount) {
+    public PrivateCloudFolderShallowLeaf(Folder folder, int directChildCount, String treeTelegramChatId) {
         this.folder = folder;
         this.directChildCount = directChildCount;
+        this.treeTelegramChatId = treeTelegramChatId;
     }
 
     @Override
@@ -33,6 +35,7 @@ public final class PrivateCloudFolderShallowLeaf implements CloudComponent {
                 folder.getId(),
                 folder.getName(),
                 folder.effectiveRootFolderId(),
+                treeTelegramChatId,
                 folder.getCreatedAt(),
                 directChildCount);
     }

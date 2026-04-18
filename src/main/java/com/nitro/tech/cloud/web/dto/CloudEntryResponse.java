@@ -24,6 +24,12 @@ public record CloudEntryResponse(
         @JsonProperty("root_folder_id")
                 @Schema(description = "UUID root của cây; với file = root của folder chứa file")
                 String rootFolderId,
+        @JsonProperty("telegram_chat_id")
+                @Schema(
+                        description =
+                                "Supergroup/archive Telegram trên **root shareable** của cây; private archive thường null. "
+                                        + "Với **file** có thể null (client dùng Saved Messages / self-chat).")
+                String telegramChatId,
         @JsonProperty("created_at") @Schema(description = "UTC") Instant createdAt,
         @JsonProperty("mime_type") @Schema(description = "Chỉ có khi là file") String mimeType,
         @JsonProperty("file_size") @Schema(description = "Kích thước (string); chỉ file") String fileSize,
@@ -38,17 +44,31 @@ public record CloudEntryResponse(
             String id,
             String name,
             String rootFolderId,
+            String telegramChatId,
             Instant createdAt,
             int childNumber,
             List<CloudEntryResponse> children) {
         return new CloudEntryResponse(
-                true, childNumber, id, name, rootFolderId, createdAt, null, null, null, null, null, children);
+                true,
+                childNumber,
+                id,
+                name,
+                rootFolderId,
+                telegramChatId,
+                createdAt,
+                null,
+                null,
+                null,
+                null,
+                null,
+                children);
     }
 
     public static CloudEntryResponse forFile(
             String id,
             String name,
             String rootFolderId,
+            String telegramChatId,
             Instant createdAt,
             String fileSize,
             String mimeType,
@@ -61,6 +81,7 @@ public record CloudEntryResponse(
                 id,
                 name,
                 rootFolderId,
+                telegramChatId,
                 createdAt,
                 mimeType,
                 fileSize,
@@ -72,8 +93,26 @@ public record CloudEntryResponse(
 
     /** Folder ở lớp liệt kê: có {@code child_number}, không có {@code children} trong JSON. */
     public static CloudEntryResponse forFolderShallow(
-            String id, String name, String rootFolderId, Instant createdAt, int childNumber) {
+            String id,
+            String name,
+            String rootFolderId,
+            String telegramChatId,
+            Instant createdAt,
+            int childNumber) {
         return new CloudEntryResponse(
-                true, childNumber, id, name, rootFolderId, createdAt, null, null, null, null, null, null);
+                true,
+                childNumber,
+                id,
+                name,
+                rootFolderId,
+                telegramChatId,
+                createdAt,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 }

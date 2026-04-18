@@ -170,10 +170,12 @@ public class FileMetadataService {
 
     private CloudEntryResponse buildFileCloudEntry(StoredFile file, Boolean isFavoriteOrOmit) {
         String rootFolderId = resolveRootFolderIdForFile(file);
+        String telegramChatId = resolveTelegramChatIdForFile(file);
         return CloudEntryResponse.forFile(
                 file.getId(),
                 file.getFileName(),
                 rootFolderId,
+                telegramChatId,
                 file.getCreatedAt(),
                 String.valueOf(file.getFileSize()),
                 file.getMimeType(),
@@ -187,6 +189,15 @@ public class FileMetadataService {
             return null;
         }
         return folderRepository.findById(file.getFolderId()).map(Folder::effectiveRootFolderId).orElse(null);
+    }
+
+    /** Telegram archive chat trên root shareable của cây chứa file; private / không có root → null. */
+    private String resolveTelegramChatIdForFile(StoredFile file) {
+        String rootId = resolveRootFolderIdForFile(file);
+        if (rootId == null) {
+            return null;
+        }
+        return folderRepository.findById(rootId).map(Folder::getTelegramChatId).orElse(null);
     }
 
     private static boolean sameRoot(String leftRootId, String leftId, String rightRootId, String rightId) {
