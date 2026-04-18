@@ -8,7 +8,9 @@ import com.nitro.tech.cloud.repository.FileFavoriteRepository;
 import com.nitro.tech.cloud.repository.FileRecentRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
+import com.nitro.tech.cloud.repository.UserRepository;
 import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
+import com.nitro.tech.cloud.web.dto.CloudUserResponse;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
 import java.time.Instant;
 import java.util.Objects;
@@ -26,18 +28,21 @@ public class FileMetadataService {
     private final FileFavoriteRepository fileFavoriteRepository;
     private final FileRecentRepository fileRecentRepository;
     private final FolderAccessService folderAccessService;
+    private final UserRepository userRepository;
 
     public FileMetadataService(
             StoredFileRepository storedFileRepository,
             FolderRepository folderRepository,
             FileFavoriteRepository fileFavoriteRepository,
             FileRecentRepository fileRecentRepository,
-            FolderAccessService folderAccessService) {
+            FolderAccessService folderAccessService,
+            UserRepository userRepository) {
         this.storedFileRepository = storedFileRepository;
         this.folderRepository = folderRepository;
         this.fileFavoriteRepository = fileFavoriteRepository;
         this.fileRecentRepository = fileRecentRepository;
         this.folderAccessService = folderAccessService;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -171,14 +176,20 @@ public class FileMetadataService {
     private CloudEntryResponse buildFileCloudEntry(StoredFile file, Boolean isFavoriteOrOmit) {
         String rootFolderId = resolveRootFolderIdForFile(file);
         String telegramChatId = resolveTelegramChatIdForFile(file);
+        CloudUserResponse createdBy =
+                file.getUserId() == null
+                        ? null
+                        : userRepository.findById(file.getUserId()).map(CloudUserResponse::fromEntity).orElse(null);
         return CloudEntryResponse.forFile(
                 file.getId(),
                 file.getFileName(),
                 rootFolderId,
                 telegramChatId,
+                file.getFolderId(),
+                createdBy,
                 file.getCreatedAt(),
-                String.valueOf(file.getFileSize()),
                 file.getMimeType(),
+                String.valueOf(file.getFileSize()),
                 file.getMessageId(),
                 file.getTelegramFileId(),
                 isFavoriteOrOmit);

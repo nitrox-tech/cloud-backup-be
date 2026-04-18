@@ -8,7 +8,9 @@ import com.nitro.tech.cloud.privatecloud.PrivateCloudFolderComposite;
 import com.nitro.tech.cloud.privatecloud.PrivateCloudFolderShallowLeaf;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
+import com.nitro.tech.cloud.repository.UserRepository;
 import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
+import com.nitro.tech.cloud.web.dto.CloudUserResponse;
 import com.nitro.tech.cloud.web.dto.PrivateCloudTreeResponse;
 import com.nitro.tech.cloud.web.dto.PublicWorkspaceResponse;
 import java.util.ArrayList;
@@ -24,14 +26,17 @@ public class PrivateCloudService {
     private final FolderRepository folderRepository;
     private final StoredFileRepository storedFileRepository;
     private final FolderAccessService folderAccessService;
+    private final UserRepository userRepository;
 
     public PrivateCloudService(
             FolderRepository folderRepository,
             StoredFileRepository storedFileRepository,
-            FolderAccessService folderAccessService) {
+            FolderAccessService folderAccessService,
+            UserRepository userRepository) {
         this.folderRepository = folderRepository;
         this.storedFileRepository = storedFileRepository;
         this.folderAccessService = folderAccessService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -103,17 +108,110 @@ public class PrivateCloudService {
             if (!folderAccessService.canAccessFolder(userId, sub.getId())) {
                 continue;
             }
-            children.add(new PrivateCloudFolderShallowLeaf(sub, countDirectChildren(sub), treeTelegramChatId));
+            children.add(new PrivateCloudFolderShallowLeaf(
+                    sub, countDirectChildren(sub), treeTelegramChatId, userSummary(sub.getUserId())));
         }
         for (StoredFile file : files) {
             if (!folderAccessService.canAccessFile(userId, file)) {
                 continue;
             }
-            children.add(new PrivateCloudFileLeaf(file, rootId, treeTelegramChatId));
+            children.add(new PrivateCloudFileLeaf(file, rootId, treeTelegramChatId, userSummary(file.getUserId())));
         }
 
-        CloudComponent rootComposite = new PrivateCloudFolderComposite(folder, children, treeTelegramChatId);
+        CloudComponent rootComposite =
+                new PrivateCloudFolderComposite(folder, children, treeTelegramChatId, userSummary(folder.getUserId()));
         return rootComposite.toResponse();
+    }
+
+    private CloudUserResponse userSummary(String ownerUserId) {
+        if (ownerUserId == null) {
+            return null;
+        }
+        return userRepository.findById(ownerUserId).map(CloudUserResponse::fromEntity).orElse(null);
+    }
+
+    /**
+     * Từ {@code folderId} hoặc {@code fileId} (đúng một trong hai): resolve {@link Folder#effectiveRootFolderId()} của
+     * cây, rồi {@link #buildFolderTreeFoldersOnly(String, String)} — cây folder đệ quy, không liệt kê file trong JSON.
+     */
+    @Transactional(readOnly = true)
+    public PrivateCloudTreeResponse buildFolderTreeFromFolderOrFile(String userId, String folderId, String fileId) {
+        boolean hasFolder = folderId != null && !folderId.isBlank();
+        boolean hasFile = fileId != null && !fileId.isBlank();
+        if (hasFolder == hasFile) {
+            throw new IllegalArgumentException("Provide exactly one of folderId or fileId");
+        }
+
+        String treeRootId;
+        if (hasFolder) {
+            Folder folder =
+                    folderRepository.findById(folderId.trim()).orElseThrow(() -> new NotFoundException("Folder not found"));
+            if (!folderAccessService.canAccessFolder(userId, folder.getId())) {
+                throw new NotFoundException("Folder not found");
+            }
+            treeRootId = folder.effectiveRootFolderId();
+        } else {
+            StoredFile file =
+                    storedFileRepository.findById(fileId.trim()).orElseThrow(() -> new NotFoundException("File not found"));
+            if (!folderAccessService.canAccessFile(userId, file)) {
+                throw new NotFoundException("File not found");
+            }
+            if (file.getFolderId() == null) {
+                throw new NotFoundException("File not found");
+            }
+            Folder containing = folderRepository
+                    .findById(file.getFolderId())
+                    .orElseThrow(() -> new NotFoundException("Folder not found"));
+            if (!folderAccessService.canAccessFolder(userId, containing.getId())) {
+                throw new NotFoundException("Folder not found");
+            }
+            treeRootId = containing.effectiveRootFolderId();
+        }
+
+        return buildFolderTreeFoldersOnly(userId, treeRootId);
+    }
+
+    /**
+     * Cây thư mục đệ quy từ {@code rootFolderId} (folder bất kỳ user có quyền): chỉ các folder con, **không** đọc
+     * bảng file. {@code child_number} trên mỗi node = số **subfolder** trực tiếp (không tính file).
+     */
+    @Transactional(readOnly = true)
+    public PrivateCloudTreeResponse buildFolderTreeFoldersOnly(String userId, String rootFolderId) {
+        Folder root = folderRepository.findById(rootFolderId).orElseThrow(() -> new NotFoundException("Folder not found"));
+        if (!folderAccessService.canAccessFolder(userId, root.getId())) {
+            throw new NotFoundException("Folder not found");
+        }
+        String treeRootId = root.effectiveRootFolderId();
+        String treeTelegramChatId = resolveTreeTelegramChatId(treeRootId);
+        CloudEntryResponse dto = buildFolderSubtreeFoldersOnly(userId, root, treeRootId, treeTelegramChatId);
+        return new PrivateCloudTreeResponse(dto);
+    }
+
+    private CloudEntryResponse buildFolderSubtreeFoldersOnly(
+            String userId, Folder folder, String treeRootId, String treeTelegramChatId) {
+        List<Folder> subfolders =
+                folderRepository.findByParentIdAndRootFolderIdOrderByNameAsc(folder.getId(), treeRootId);
+        subfolders = new ArrayList<>(subfolders);
+        subfolders.sort(Comparator.comparing(Folder::getName, String.CASE_INSENSITIVE_ORDER));
+
+        List<CloudEntryResponse> childDtos = new ArrayList<>();
+        for (Folder sub : subfolders) {
+            if (!folderAccessService.canAccessFolder(userId, sub.getId())) {
+                continue;
+            }
+            childDtos.add(buildFolderSubtreeFoldersOnly(userId, sub, treeRootId, treeTelegramChatId));
+        }
+
+        return CloudEntryResponse.forFolder(
+                folder.getId(),
+                folder.getName(),
+                folder.effectiveRootFolderId(),
+                treeTelegramChatId,
+                folder.getParentId(),
+                userSummary(folder.getUserId()),
+                folder.getCreatedAt(),
+                childDtos.size(),
+                childDtos);
     }
 
     private String resolveTreeTelegramChatId(String rootFolderId) {

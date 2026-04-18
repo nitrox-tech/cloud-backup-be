@@ -30,6 +30,15 @@ public record CloudEntryResponse(
                                 "Supergroup/archive Telegram trên **root shareable** của cây; private archive thường null. "
                                         + "Với **file** có thể null (client dùng Saved Messages / self-chat).")
                 String telegramChatId,
+        @JsonProperty("parent_folder_id")
+                @Schema(
+                        description =
+                                "Folder cha: với folder = `folders.parent_id` (null nếu root); với file = `files.folder_id` "
+                                        + "(folder chứa file).")
+                String parentFolderId,
+        @JsonProperty("created_by")
+                @Schema(description = "User gắn với row (`folders.user_id` / `files.user_id` — owner cây hoặc người tạo metadata file)")
+                CloudUserResponse createdBy,
         @JsonProperty("created_at") @Schema(description = "UTC") Instant createdAt,
         @JsonProperty("mime_type") @Schema(description = "Chỉ có khi là file") String mimeType,
         @JsonProperty("file_size") @Schema(description = "Kích thước (string); chỉ file") String fileSize,
@@ -45,6 +54,8 @@ public record CloudEntryResponse(
             String name,
             String rootFolderId,
             String telegramChatId,
+            String parentFolderId,
+            CloudUserResponse createdBy,
             Instant createdAt,
             int childNumber,
             List<CloudEntryResponse> children) {
@@ -55,6 +66,8 @@ public record CloudEntryResponse(
                 name,
                 rootFolderId,
                 telegramChatId,
+                parentFolderId,
+                createdBy,
                 createdAt,
                 null,
                 null,
@@ -69,9 +82,11 @@ public record CloudEntryResponse(
             String name,
             String rootFolderId,
             String telegramChatId,
+            String parentFolderId,
+            CloudUserResponse createdBy,
             Instant createdAt,
-            String fileSize,
             String mimeType,
+            String fileSize,
             String messageId,
             String telegramFileId,
             Boolean isFavorite) {
@@ -82,6 +97,8 @@ public record CloudEntryResponse(
                 name,
                 rootFolderId,
                 telegramChatId,
+                parentFolderId,
+                createdBy,
                 createdAt,
                 mimeType,
                 fileSize,
@@ -97,6 +114,8 @@ public record CloudEntryResponse(
             String name,
             String rootFolderId,
             String telegramChatId,
+            String parentFolderId,
+            CloudUserResponse createdBy,
             Instant createdAt,
             int childNumber) {
         return new CloudEntryResponse(
@@ -106,8 +125,9 @@ public record CloudEntryResponse(
                 name,
                 rootFolderId,
                 telegramChatId,
+                parentFolderId,
+                createdBy,
                 createdAt,
-                null,
                 null,
                 null,
                 null,

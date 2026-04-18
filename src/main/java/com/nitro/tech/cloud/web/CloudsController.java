@@ -109,6 +109,22 @@ public class CloudsController {
     }
 
     @Operation(
+            summary = "Cây folder (không file) từ root của cây",
+            description =
+                    "GET `/clouds/folder-tree?folderId=…` **hoặc** `?fileId=…` (đúng một tham số): từ folder/file bất kỳ "
+                            + "user có quyền, resolve **root cây** (`root_folder_id` / archive root), rồi build **cây đệ quy** "
+                            + "chỉ thư mục — không đưa file vào JSON (chỉ đọc metadata file tối thiểu khi dùng `fileId`). "
+                            + "`child_number` = số subfolder trực tiếp (không tính file).")
+    @GetMapping("/folder-tree")
+    public PrivateCloudTreeResponse getFolderTreeOnly(
+            @Parameter(description = "UUID folder bất kỳ trong cây (xor với fileId)") @RequestParam(required = false)
+                    String folderId,
+            @Parameter(description = "UUID file metadata bất kỳ trong cây (xor với folderId)") @RequestParam(required = false)
+                    String fileId) {
+        return privateCloudService.buildFolderTreeFromFolderOrFile(SecurityUtils.currentUserId(), folderId, fileId);
+    }
+
+    @Operation(
             summary = "Di chuyển file hoặc folder trong cùng cây",
             description =
                     "Gom logic move file (`PUT /files/{id}/move` cũ) và move folder (`PUT /folders/{id}/move` cũ): đặt entry vào "

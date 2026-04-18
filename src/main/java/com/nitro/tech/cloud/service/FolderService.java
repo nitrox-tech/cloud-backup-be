@@ -8,7 +8,9 @@ import com.nitro.tech.cloud.repository.FolderInviteCodeRepository;
 import com.nitro.tech.cloud.repository.FolderMemberRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
+import com.nitro.tech.cloud.repository.UserRepository;
 import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
+import com.nitro.tech.cloud.web.dto.CloudUserResponse;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
@@ -27,6 +29,7 @@ public class FolderService {
     private final FolderInviteCodeRepository folderInviteCodeRepository;
     private final FolderAccessService folderAccessService;
     private final InviteProperties inviteProperties;
+    private final UserRepository userRepository;
     private static final String INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int INVITE_CODE_LENGTH = 10;
     private static final int INVITE_CODE_RETRY_LIMIT = 6;
@@ -38,13 +41,15 @@ public class FolderService {
             FolderMemberRepository folderMemberRepository,
             FolderInviteCodeRepository folderInviteCodeRepository,
             FolderAccessService folderAccessService,
-            InviteProperties inviteProperties) {
+            InviteProperties inviteProperties,
+            UserRepository userRepository) {
         this.folderRepository = folderRepository;
         this.storedFileRepository = storedFileRepository;
         this.folderMemberRepository = folderMemberRepository;
         this.folderInviteCodeRepository = folderInviteCodeRepository;
         this.folderAccessService = folderAccessService;
         this.inviteProperties = inviteProperties;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -412,11 +417,17 @@ public class FolderService {
         long total = dirs + fls;
         int childNumber = total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
         String treeChat = resolveTreeTelegramChatId(folder.effectiveRootFolderId());
+        CloudUserResponse createdBy =
+                folder.getUserId() == null
+                        ? null
+                        : userRepository.findById(folder.getUserId()).map(CloudUserResponse::fromEntity).orElse(null);
         return CloudEntryResponse.forFolderShallow(
                 folder.getId(),
                 folder.getName(),
                 folder.effectiveRootFolderId(),
                 treeChat,
+                folder.getParentId(),
+                createdBy,
                 folder.getCreatedAt(),
                 childNumber);
     }
