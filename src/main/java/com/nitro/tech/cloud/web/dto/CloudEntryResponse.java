@@ -29,6 +29,9 @@ public record CloudEntryResponse(
         @JsonProperty("file_size") @Schema(description = "Kích thước (string); chỉ file") String fileSize,
         @JsonProperty("message_id") @Schema(description = "Chỉ file") String messageId,
         @JsonProperty("telegram_file_id") @Schema(description = "Chỉ file") String telegramFileId,
+        @JsonProperty("is_favorite")
+                @Schema(description = "Chỉ file: user hiện tại đã đánh dấu favorite; null khi không trả về (listing cloud)")
+                Boolean isFavorite,
         @Schema(description = "Chỉ folder: một lớp con") List<CloudEntryResponse> children) {
 
     public static CloudEntryResponse forFolder(
@@ -39,7 +42,7 @@ public record CloudEntryResponse(
             int childNumber,
             List<CloudEntryResponse> children) {
         return new CloudEntryResponse(
-                true, childNumber, id, name, rootFolderId, createdAt, null, null, null, null, children);
+                true, childNumber, id, name, rootFolderId, createdAt, null, null, null, null, null, children);
     }
 
     public static CloudEntryResponse forFile(
@@ -50,7 +53,8 @@ public record CloudEntryResponse(
             String fileSize,
             String mimeType,
             String messageId,
-            String telegramFileId) {
+            String telegramFileId,
+            Boolean isFavorite) {
         return new CloudEntryResponse(
                 false,
                 0,
@@ -62,6 +66,7 @@ public record CloudEntryResponse(
                 fileSize,
                 messageId,
                 telegramFileId,
+                isFavorite,
                 null);
     }
 
@@ -69,6 +74,6 @@ public record CloudEntryResponse(
     public static CloudEntryResponse forFolderShallow(
             String id, String name, String rootFolderId, Instant createdAt, int childNumber) {
         return new CloudEntryResponse(
-                true, childNumber, id, name, rootFolderId, createdAt, null, null, null, null, null);
+                true, childNumber, id, name, rootFolderId, createdAt, null, null, null, null, null, null);
     }
 }

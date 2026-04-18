@@ -63,15 +63,18 @@ Public endpoints (no API key, no JWT):
 
 ### Files
 
-- `POST /files/metadata` - create file metadata → `CloudEntryResponse` (file row)
-- `GET /files/{id}` - get file metadata → `CloudEntryResponse`
-- `PUT /files/{id}` - update file metadata name → `CloudEntryResponse`
+- `POST /files/metadata` - create file metadata → `CloudEntryResponse` (file row, có `is_favorite` cho user hiện tại)
+- `GET /files/{id}` - get file metadata → `CloudEntryResponse` (có `is_favorite`)
+- `PUT /files/{id}` - update file metadata name → `CloudEntryResponse` (có `is_favorite`)
+- `POST /files/{id}/favorite` - toggle favorite của user hiện tại cho file → `CloudEntryResponse` với `is_favorite` mới
 - `DELETE /files/{id}` - delete file metadata
 
 Listing theo folder / tree: dùng `GET /clouds/private` hoặc `GET /clouds/public-workspace` (một lớp `children`), không có `GET /files` list riêng.
 
 ### Clouds
 
+- `GET /clouds/home` - tối đa 15 favorite + 15 recent (`CloudHomeResponse`)
+- `GET /clouds/favorite` - favorite có phân trang; **`page` 1-based** (trang đầu `page=1`), `size` mặc định 20 (`FavoriteFilesPageResponse`)
 - `GET /clouds/private` - private root + one layer of children (`PrivateCloudTreeResponse`)
 - `GET /clouds/folders/{id}` - any accessible folder + one layer of children (same shape as `/clouds/private`)
 - `GET /clouds/public-workspace` - shareable roots + one layer each
@@ -299,7 +302,7 @@ Request:
 }
 ```
 
-Response (example — cùng shape `CloudEntryResponse` với file trong `GET /clouds/private`):
+Response (example — `CloudEntryResponse` file row; thêm `is_favorite` cho user hiện tại):
 
 ```json
 {
@@ -312,9 +315,16 @@ Response (example — cùng shape `CloudEntryResponse` với file trong `GET /cl
   "mime_type": "application/pdf",
   "file_size": "345678",
   "message_id": "12345",
-  "telegram_file_id": "AgACAgUAAxkBAAIB..."
+  "telegram_file_id": "AgACAgUAAxkBAAIB...",
+  "is_favorite": false
 }
 ```
+
+## `POST /files/{id}/favorite`
+
+Protected (API key + JWT). Toggle favorite **theo user đang đăng nhập** (một dòng trong `file_favorites` / user + file). Cùng quyền xem file như `GET /files/{id}`.
+
+Response: `CloudEntryResponse` file với `is_favorite` bật/tắt sau thao tác.
 
 ## `GET /workspace-invites/{workspaceId}/members`
 
@@ -394,6 +404,7 @@ curl -X POST "http://localhost:8080/files/metadata" \
 
 - Treat IDs as opaque strings unless explicitly numeric (`TelegramLoginRequest.id` is numeric).
 - `file_size` in `CloudEntryResponse` (file row) is string, but `POST /files/metadata` request uses numeric `file_size`.
+- `is_favorite` on file rows: có trên `GET|POST|PUT /files/...` và sau `POST /files/{id}/favorite`; thường **không** có trên file trong `GET /clouds/...` listing (để tránh N+1).
 - Telegram file bytes are not served by this backend; this service stores metadata and access rules.
 - For business semantics of Telegram routing, also read:
   - `docs/TELEGRAM_CLIENT_RULES.md`

@@ -35,6 +35,7 @@ public final class PrivateCloudFileLeaf implements CloudComponent {
                 String.valueOf(file.getFileSize()),
                 file.getMimeType(),
                 file.getMessageId(),
-                file.getTelegramFileId());
+                file.getTelegramFileId(),
+                null);
     }
 }

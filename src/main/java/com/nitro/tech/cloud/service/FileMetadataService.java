@@ -1,28 +1,42 @@
 package com.nitro.tech.cloud.service;
 
+import com.nitro.tech.cloud.domain.FileFavorite;
+import com.nitro.tech.cloud.domain.FileRecent;
 import com.nitro.tech.cloud.domain.Folder;
 import com.nitro.tech.cloud.domain.StoredFile;
+import com.nitro.tech.cloud.repository.FileFavoriteRepository;
+import com.nitro.tech.cloud.repository.FileRecentRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
+import java.time.Instant;
 import java.util.Objects;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FileMetadataService {
 
+    private static final int RECENT_FILES_CAP = 15;
+
     private final StoredFileRepository storedFileRepository;
     private final FolderRepository folderRepository;
+    private final FileFavoriteRepository fileFavoriteRepository;
+    private final FileRecentRepository fileRecentRepository;
     private final FolderAccessService folderAccessService;
 
     public FileMetadataService(
             StoredFileRepository storedFileRepository,
             FolderRepository folderRepository,
+            FileFavoriteRepository fileFavoriteRepository,
+            FileRecentRepository fileRecentRepository,
             FolderAccessService folderAccessService) {
         this.storedFileRepository = storedFileRepository;
         this.folderRepository = folderRepository;
+        this.fileFavoriteRepository = fileFavoriteRepository;
+        this.fileRecentRepository = fileRecentRepository;
         this.folderAccessService = folderAccessService;
     }
 
@@ -39,7 +53,30 @@ public class FileMetadataService {
         f.setFileSize(req.fileSize());
         f.setMimeType(req.mimeType());
         f.setFolderId(req.folderId());
-        return storedFileRepository.save(f);
+        StoredFile saved = storedFileRepository.save(f);
+        touchRecent(userId, saved.getId());
+        return saved;
+    }
+
+    /** Upsert recent row for this user+file and keep at most {@link #RECENT_FILES_CAP} rows per user. */
+    private void touchRecent(String userId, String fileId) {
+        Instant now = Instant.now();
+        FileRecent row = fileRecentRepository
+                .findByUserIdAndFileId(userId, fileId)
+                .orElseGet(() -> {
+                    FileRecent r = new FileRecent();
+                    r.setUserId(userId);
+                    r.setFileId(fileId);
+                    return r;
+                });
+        row.setLastActionAt(now);
+        fileRecentRepository.save(row);
+        long cnt = fileRecentRepository.countByUserId(userId);
+        if (cnt > RECENT_FILES_CAP) {
+            int excess = (int) (cnt - RECENT_FILES_CAP);
+            var oldest = fileRecentRepository.findByUserIdOrderByLastActionAtAsc(userId, PageRequest.of(0, excess));
+            fileRecentRepository.deleteAll(oldest);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -96,9 +133,42 @@ public class FileMetadataService {
         return storedFileRepository.save(file);
     }
 
-    /** Same JSON shape as file rows in {@code GET /clouds/private} / public workspace listings. */
+    /**
+     * Toggle favorite for the current user. Idempotent flip; requires same access as reading file metadata.
+     *
+     * @return updated {@code is_favorite} for the viewer
+     */
+    @Transactional
+    public CloudEntryResponse toggleFavorite(String userId, String fileId) {
+        StoredFile file = getIfAccessible(userId, fileId);
+        boolean nowFavorite;
+        if (fileFavoriteRepository.existsByUserIdAndFileId(userId, fileId)) {
+            fileFavoriteRepository.deleteByUserIdAndFileId(userId, fileId);
+            nowFavorite = false;
+        } else {
+            FileFavorite row = new FileFavorite();
+            row.setUserId(userId);
+            row.setFileId(fileId);
+            fileFavoriteRepository.save(row);
+            nowFavorite = true;
+        }
+        return buildFileCloudEntry(file, nowFavorite);
+    }
+
+    /** Same JSON shape as file rows in cloud listings; {@code is_favorite} omitted. */
     @Transactional(readOnly = true)
     public CloudEntryResponse toCloudEntry(StoredFile file) {
+        return buildFileCloudEntry(file, null);
+    }
+
+    /** File row with {@code is_favorite} true/false for the viewer. */
+    @Transactional(readOnly = true)
+    public CloudEntryResponse toCloudEntryForViewer(String viewerId, StoredFile file) {
+        boolean fav = fileFavoriteRepository.existsByUserIdAndFileId(viewerId, file.getId());
+        return buildFileCloudEntry(file, fav);
+    }
+
+    private CloudEntryResponse buildFileCloudEntry(StoredFile file, Boolean isFavoriteOrOmit) {
         String rootFolderId = resolveRootFolderIdForFile(file);
         return CloudEntryResponse.forFile(
                 file.getId(),
@@ -108,7 +178,8 @@ public class FileMetadataService {
                 String.valueOf(file.getFileSize()),
                 file.getMimeType(),
                 file.getMessageId(),
-                file.getTelegramFileId());
+                file.getTelegramFileId(),
+                isFavoriteOrOmit);
     }
 
     private String resolveRootFolderIdForFile(StoredFile file) {

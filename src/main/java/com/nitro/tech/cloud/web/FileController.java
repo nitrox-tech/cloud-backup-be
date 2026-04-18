@@ -39,7 +39,8 @@ public class FileController {
         String userId = SecurityUtils.currentUserId();
         try {
             var saved = fileMetadataService.save(userId, body);
-            return ResponseEntity.status(HttpStatus.CREATED).body(fileMetadataService.toCloudEntry(saved));
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(fileMetadataService.toCloudEntryForViewer(userId, saved));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         }
@@ -51,8 +52,8 @@ public class FileController {
     public ResponseEntity<?> get(@Parameter(description = "UUID file metadata") @PathVariable String id) {
         String userId = SecurityUtils.currentUserId();
         try {
-            return ResponseEntity.ok(
-                    fileMetadataService.toCloudEntry(fileMetadataService.getIfAccessible(userId, id)));
+            return ResponseEntity.ok(fileMetadataService.toCloudEntryForViewer(
+                    userId, fileMetadataService.getIfAccessible(userId, id)));
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
         }
@@ -66,7 +67,20 @@ public class FileController {
         String userId = SecurityUtils.currentUserId();
         try {
             var updated = fileMetadataService.updateIfAccessible(userId, id, body.fileName());
-            return ResponseEntity.ok(fileMetadataService.toCloudEntry(updated));
+            return ResponseEntity.ok(fileMetadataService.toCloudEntryForViewer(userId, updated));
+        } catch (NotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "Toggle favorite file",
+            description = "Bật/tắt favorite của **user hiện tại** cho file metadata; cùng điều kiện quyền như GET file. Response có `is_favorite`.")
+    @PostMapping("/{id}/favorite")
+    public ResponseEntity<?> toggleFavorite(@Parameter(description = "UUID file metadata") @PathVariable String id) {
+        String userId = SecurityUtils.currentUserId();
+        try {
+            return ResponseEntity.ok(fileMetadataService.toggleFavorite(userId, id));
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
         }

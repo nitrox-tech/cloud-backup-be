@@ -1,10 +1,13 @@
 package com.nitro.tech.cloud.web;
 
+import com.nitro.tech.cloud.service.CloudHomeService;
 import com.nitro.tech.cloud.service.ConflictException;
 import com.nitro.tech.cloud.service.FileMetadataService;
 import com.nitro.tech.cloud.service.FolderService;
 import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.service.PrivateCloudService;
+import com.nitro.tech.cloud.web.dto.CloudHomeResponse;
+import com.nitro.tech.cloud.web.dto.FavoriteFilesPageResponse;
 import com.nitro.tech.cloud.web.dto.MoveCloudEntryRequest;
 import com.nitro.tech.cloud.web.dto.PrivateCloudTreeResponse;
 import com.nitro.tech.cloud.web.dto.PublicWorkspaceResponse;
@@ -18,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,17 +34,45 @@ import org.springframework.web.bind.annotation.RestController;
                 "API nhóm `/clouds` — private root, chi tiết folder + một lớp con, shareable workspace (listing), move entry")
 public class CloudsController {
 
+    private static final int FAVORITE_PAGE_MAX_SIZE = 100;
+
     private final PrivateCloudService privateCloudService;
+    private final CloudHomeService cloudHomeService;
     private final FileMetadataService fileMetadataService;
     private final FolderService folderService;
 
     public CloudsController(
             PrivateCloudService privateCloudService,
+            CloudHomeService cloudHomeService,
             FileMetadataService fileMetadataService,
             FolderService folderService) {
         this.privateCloudService = privateCloudService;
+        this.cloudHomeService = cloudHomeService;
         this.fileMetadataService = fileMetadataService;
         this.folderService = folderService;
+    }
+
+    @Operation(
+            summary = "Home cloud — favorite & recent",
+            description =
+                    "Tối đa 15 file favorite và 15 file recent (theo thời gian favorite / lần cuối POST metadata), chỉ file user vẫn có quyền xem.")
+    @GetMapping("/home")
+    public CloudHomeResponse getHome() {
+        return cloudHomeService.buildHome(SecurityUtils.currentUserId());
+    }
+
+    @Operation(
+            summary = "Danh sách file đã favorite (phân trang)",
+            description =
+                    "Sort theo `created_at` của favorite (mới nhất trước). **`page` theo UI: bắt đầu từ 1** (trang đầu = `page=1`); backend map sang Spring 0-based. "
+                            + "`size` mặc định 20, tối đa 100. Response `page` cùng quy ước 1-based.")
+    @GetMapping("/favorite")
+    public FavoriteFilesPageResponse listFavoriteFiles(
+            @Parameter(description = "Trang 1-based, tối thiểu 1 (trang đầu)") @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        int uiPage = Math.max(1, page);
+        int safeSize = Math.min(FAVORITE_PAGE_MAX_SIZE, Math.max(1, size));
+        return cloudHomeService.pageFavorites(SecurityUtils.currentUserId(), uiPage, safeSize);
     }
 
     @Operation(
