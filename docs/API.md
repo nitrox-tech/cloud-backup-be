@@ -52,7 +52,6 @@ Public endpoints (no API key, no JWT):
 - `POST /folders` - create folder
 - `GET /folders` - list accessible folders
 - `PUT /folders/{id}` - rename folder
-- `PUT /folders/{id}/move` - move folder to another parent
 - `DELETE /folders/{id}` - delete folder
 - `PUT /folders/{id}/telegram-chat` - set `telegram_chat_id`
 - `DELETE /folders/{id}/telegram-chat` - clear `telegram_chat_id`
@@ -69,8 +68,13 @@ Public endpoints (no API key, no JWT):
 - `GET /files` - list file metadata (optional `folder_id`)
 - `GET /files/{id}` - get file metadata
 - `PUT /files/{id}` - update file metadata name
-- `PUT /files/{id}/move` - move file metadata to another folder
 - `DELETE /files/{id}` - delete file metadata
+
+### Clouds
+
+- `GET /clouds/private` - private root + one layer of children
+- `GET /clouds/public-workspace` - shareable roots + one layer each
+- `PUT /clouds/entries/{id}/move` - move **file** or **folder** into `target_folder_id` (same `root_folder_id`; body có `is_folder`)
 
 ---
 
@@ -131,18 +135,15 @@ Request:
 }
 ```
 
-Response (example):
+Response (example — cùng shape `CloudEntryResponse` folder shallow như trong `GET /clouds/private`):
 
 ```json
 {
+  "is_folder": true,
+  "child_number": 0,
   "id": "folder-uuid",
-  "user_id": "internal-user-uuid",
   "name": "My Root",
-  "parent_id": null,
   "root_folder_id": "folder-uuid",
-  "shareable": true,
-  "telegram_chat_id": "-1001234567890",
-  "is_root": true,
   "created_at": "2026-04-06T12:00:00Z"
 }
 ```
@@ -155,25 +156,27 @@ Notes:
 - If creating a subfolder (`parent_id != null`), `shareable` is inherited from parent folder (request `shareable` is ignored for this case).
 - `telegram_chat_id` is only accepted for shareable root folders.
 
-## `PUT /folders/{id}/move`
+## `PUT /clouds/entries/{id}/move`
+
+Protected (API key + JWT). **Một endpoint** thay cho `PUT /folders/{id}/move` và `PUT /files/{id}/move` cũ.
+
+Path `{id}`: UUID **file metadata** nếu `is_folder: false`, hoặc UUID **folder** nếu `is_folder: true`.
 
 Request:
 
 ```json
 {
-  "parent_id": "target-parent-folder-uuid"
+  "is_folder": false,
+  "target_folder_id": "target-folder-uuid"
 }
 ```
 
 Rules:
 
-- Cannot move root folder.
-- Only folders in `shareable=true` trees can be moved.
-- Target parent must also be in a `shareable=true` tree.
-- Move is only allowed inside the same root tree.
-- Cannot move a folder into itself or into one of its descendants.
+- **Folder** (`is_folder: true`): không move root; target phải cùng `root_folder_id`; không move vào chính folder hoặc descendant của nó; user phải có quyền trên cả source và target. Trùng tên trong target → `409`.
+- **File** (`is_folder: false`): file phải đang có `folder_id` (trong cây shareable theo rule service); target cùng cây `root_folder_id`; user có quyền trên file và trên folder đích.
 
-Response: same schema as `FolderResponse`.
+Response: `CloudEntryResponse` — folder shallow (`is_folder: true`) hoặc file row (`is_folder: false`), cùng shape với `GET /clouds/private` / listing.
 
 ## `POST /folders/{id}/invites`
 
@@ -271,24 +274,6 @@ Response:
   }
 }
 ```
-
-## `PUT /files/{id}/move`
-
-Request:
-
-```json
-{
-  "folder_id": "target-folder-uuid"
-}
-```
-
-Rules:
-
-- Only files already located in a `shareable=true` folder can be moved.
-- Target folder must be in a `shareable=true` tree.
-- Move is only allowed inside the same root tree.
-
-Response: same schema as `CloudEntryResponse` (file row, like `GET /files` items).
 
 ## `POST /files/metadata`
 

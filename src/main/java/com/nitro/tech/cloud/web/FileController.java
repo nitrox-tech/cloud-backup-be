@@ -3,8 +3,6 @@ package com.nitro.tech.cloud.web;
 import com.nitro.tech.cloud.service.FileMetadataService;
 import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
-import com.nitro.tech.cloud.web.dto.ListResponse;
-import com.nitro.tech.cloud.web.dto.MoveFileRequest;
 import com.nitro.tech.cloud.web.dto.UpdateFileMetadataRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,7 +18,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -48,22 +45,6 @@ public class FileController {
         }
     }
 
-    @Operation(
-            summary = "Danh sách file",
-            description = "Lọc theo folder (optional). Không truyền folder_id thì trả về file user có quyền xem theo rule service.")
-    @GetMapping
-    public ResponseEntity<?> list(
-            @Parameter(description = "UUID folder (optional)") @RequestParam(name = "folder_id", required = false)
-                    String folderId) {
-        String userId = SecurityUtils.currentUserId();
-        try {
-            var items =
-                    fileMetadataService.list(userId, folderId).stream().map(fileMetadataService::toCloudEntry).toList();
-            return ResponseEntity.ok(new ListResponse<>(items));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
-        }
-    }
 
     @Operation(summary = "Lấy chi tiết file", description = "Theo id metadata; 404 nếu không tồn tại hoặc không có quyền.")
     @GetMapping("/{id}")
@@ -100,24 +81,6 @@ public class FileController {
             return ResponseEntity.noContent().build();
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
-        }
-    }
-
-    @Operation(
-            summary = "Di chuyển file metadata",
-            description = "Chỉ file đang nằm trong folder shareable mới được move; chỉ move trong cùng cây shareable.")
-    @PutMapping("/{id}/move")
-    public ResponseEntity<?> move(
-            @Parameter(description = "UUID file metadata") @PathVariable String id,
-            @Valid @RequestBody MoveFileRequest body) {
-        String userId = SecurityUtils.currentUserId();
-        try {
-            var moved = fileMetadataService.moveIfAccessible(userId, id, body.folderId());
-            return ResponseEntity.ok(fileMetadataService.toCloudEntry(moved));
-        } catch (NotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         }
     }
 

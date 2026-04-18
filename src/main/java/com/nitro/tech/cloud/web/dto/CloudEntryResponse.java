@@ -7,8 +7,10 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * JSON node cho {@code GET /clouds/private}, {@code GET /clouds/public-workspace}, và body thành công của
- * {@code POST|GET|PUT /files/…} (metadata file): cùng shape ({@code is_folder}, {@code child_number}, …).
+ * JSON node cho {@code GET /clouds/private}, {@code GET /clouds/public-workspace}, body thành công của
+ * {@code POST|GET|PUT /files/…} (metadata file), folder shallow từ {@code POST|PUT /folders} (tạo / đổi tên), và sau
+ * {@code PUT /clouds/entries/{id}/move} (file hoặc folder):
+ * cùng shape ({@code is_folder}, {@code child_number}, …).
  * Chỉ root listing có {@code children} (một lớp); folder con / file không kèm {@code children}.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)

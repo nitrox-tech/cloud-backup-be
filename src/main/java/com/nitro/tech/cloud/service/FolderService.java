@@ -9,6 +9,7 @@ import com.nitro.tech.cloud.repository.FolderMemberRepository;
 import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.repository.UserRepository;
+import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
@@ -433,6 +434,24 @@ public class FolderService {
         String leftRoot = left.getRootFolderId() != null ? left.getRootFolderId() : left.getId();
         String rightRoot = right.getRootFolderId() != null ? right.getRootFolderId() : right.getId();
         return leftRoot.equals(rightRoot);
+    }
+
+    /**
+     * Shallow folder row — same JSON shape as folder entries trong {@code GET /clouds/private} (không lồng
+     * {@code children}).
+     */
+    @Transactional(readOnly = true)
+    public CloudEntryResponse toCloudEntryShallow(Folder folder) {
+        long dirs = folderRepository.countByParentId(folder.getId());
+        long fls = storedFileRepository.countByFolderId(folder.getId());
+        long total = dirs + fls;
+        int childNumber = total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+        return CloudEntryResponse.forFolderShallow(
+                folder.getId(),
+                folder.getName(),
+                folder.effectiveRootFolderId(),
+                folder.getCreatedAt(),
+                childNumber);
     }
 
     private FolderMember createFolderMember(String folderId, String memberUserId) {

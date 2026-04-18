@@ -8,11 +8,8 @@ import com.nitro.tech.cloud.web.dto.CreateFolderInviteRequest;
 import com.nitro.tech.cloud.web.dto.CreateFolderInviteResponse;
 import com.nitro.tech.cloud.web.dto.CreateFolderRequest;
 import com.nitro.tech.cloud.web.dto.FolderMemberResponse;
-import com.nitro.tech.cloud.web.dto.FolderResponse;
 import com.nitro.tech.cloud.web.dto.ListResponse;
-import com.nitro.tech.cloud.web.dto.MoveFolderRequest;
 import com.nitro.tech.cloud.web.dto.RenameFolderRequest;
-import com.nitro.tech.cloud.web.dto.SetFolderTelegramChatRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -48,7 +45,7 @@ public class FolderController {
         String userId = SecurityUtils.currentUserId();
         try {
             var f = folderService.create(userId, body.name(), body.parentId(), body.shareable(), body.telegramChatId());
-            return ResponseEntity.status(HttpStatus.CREATED).body(FolderResponse.from(f));
+            return ResponseEntity.status(HttpStatus.CREATED).body(folderService.toCloudEntryShallow(f));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         } catch (ConflictException e) {
@@ -56,69 +53,7 @@ public class FolderController {
         }
     }
 
-    @Operation(summary = "Danh sách folder", description = "Cây folder user có quyền xem (theo rule service).")
-    @GetMapping
-    public ListResponse<FolderResponse> list() {
-        String userId = SecurityUtils.currentUserId();
-        var items = folderService.list(userId).stream().map(FolderResponse::from).toList();
-        return new ListResponse<>(items);
-    }
 
-    @Operation(
-            summary = "Tạo invite cho archive shareable",
-            description =
-                    "Chỉ owner archive shareable mới tạo được. {id} có thể là bất kỳ folder trong cây — "
-                            + "response luôn dùng UUID root backend và metadata link Telegram.")
-    @PostMapping("/{id}/invites")
-    public ResponseEntity<?> createInviteCode(
-            @Parameter(description = "UUID folder (bất kỳ node trong cây shareable)") @PathVariable String id,
-            @Valid @RequestBody CreateFolderInviteRequest body) {
-        String userId = SecurityUtils.currentUserId();
-        try {
-            var inviteCode = folderService.createArchiveInviteCode(userId, id, body.telegramJoinLink(), body.expiresAt());
-            var root = folderService.loadRootById(inviteCode.getFolderId());
-            var verifyResult = folderService.verifyInviteCode(inviteCode.getCode());
-            return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(CreateFolderInviteResponse.from(inviteCode, root, verifyResult.inviteUrl()));
-        } catch (NotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
-        } catch (ConflictException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorBody(e.getMessage()));
-        }
-    }
-
-    @Operation(
-            summary = "Gắn Telegram supergroup chat id",
-            description = "Áp dụng cho root shareable — id chat nhóm (-100…) để client đồng bộ message.")
-    @PutMapping("/{id}/telegram-chat")
-    public ResponseEntity<?> setTelegramChat(
-            @Parameter(description = "UUID folder (thường là root shareable)") @PathVariable String id,
-            @Valid @RequestBody SetFolderTelegramChatRequest body) {
-        String userId = SecurityUtils.currentUserId();
-        try {
-            return ResponseEntity.ok(FolderResponse.from(folderService.setTelegramChatId(userId, id, body.telegramChatId())));
-        } catch (NotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
-        }
-    }
-
-    @Operation(summary = "Gỡ Telegram chat id khỏi folder", description = "Xóa telegram_chat_id trên root shareable.")
-    @DeleteMapping("/{id}/telegram-chat")
-    public ResponseEntity<?> clearTelegramChat(
-            @Parameter(description = "UUID folder root shareable") @PathVariable String id) {
-        String userId = SecurityUtils.currentUserId();
-        try {
-            return ResponseEntity.ok(FolderResponse.from(folderService.clearTelegramChatId(userId, id)));
-        } catch (NotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
-        }
-    }
 
     @Operation(summary = "Đổi tên folder", description = "409 nếu trùng tên trong cùng parent.")
     @PutMapping("/{id}")
@@ -127,29 +62,9 @@ public class FolderController {
             @Valid @RequestBody RenameFolderRequest body) {
         String userId = SecurityUtils.currentUserId();
         try {
-            return ResponseEntity.ok(FolderResponse.from(folderService.rename(userId, id, body.name())));
+            return ResponseEntity.ok(folderService.toCloudEntryShallow(folderService.rename(userId, id, body.name())));
         } catch (NotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
-        } catch (ConflictException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorBody(e.getMessage()));
-        }
-    }
-
-    @Operation(
-            summary = "Di chuyển folder",
-            description =
-                    "Không cho phép move root. Chỉ folder trong cây shareable mới được move, và chỉ move trong cùng cây shareable.")
-    @PutMapping("/{id}/move")
-    public ResponseEntity<?> move(
-            @Parameter(description = "UUID folder") @PathVariable String id,
-            @Valid @RequestBody MoveFolderRequest body) {
-        String userId = SecurityUtils.currentUserId();
-        try {
-            return ResponseEntity.ok(FolderResponse.from(folderService.move(userId, id, body.parentId())));
-        } catch (NotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         } catch (ConflictException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorBody(e.getMessage()));
         }
@@ -223,6 +138,31 @@ public class FolderController {
             return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
         }
     }
+
+    @Operation(
+        summary = "Tạo invite cho archive shareable",
+        description =
+                "Chỉ owner archive shareable mới tạo được. {id} có thể là bất kỳ folder trong cây — "
+                        + "response luôn dùng UUID root backend và metadata link Telegram.")
+@PostMapping("/{id}/invites")
+public ResponseEntity<?> createInviteCode(
+        @Parameter(description = "UUID folder (bất kỳ node trong cây shareable)") @PathVariable String id,
+        @Valid @RequestBody CreateFolderInviteRequest body) {
+    String userId = SecurityUtils.currentUserId();
+    try {
+        var inviteCode = folderService.createArchiveInviteCode(userId, id, body.telegramJoinLink(), body.expiresAt());
+        var root = folderService.loadRootById(inviteCode.getFolderId());
+        var verifyResult = folderService.verifyInviteCode(inviteCode.getCode());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(CreateFolderInviteResponse.from(inviteCode, root, verifyResult.inviteUrl()));
+    } catch (NotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorBody(e.getMessage()));
+    } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(new ErrorBody(e.getMessage()));
+    } catch (ConflictException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorBody(e.getMessage()));
+    }
+}
 
     @Schema(name = "FolderError", description = "Lỗi 400/404/409 — message từ server")
     public record ErrorBody(String error) {}
