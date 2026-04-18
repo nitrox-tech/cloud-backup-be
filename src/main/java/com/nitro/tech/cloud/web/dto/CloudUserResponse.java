@@ -1,13 +1,11 @@
 package com.nitro.tech.cloud.web.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nitro.tech.cloud.domain.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
 /** Thông tin user gắn với folder/file (creator / owner row trong DB). */
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "User — dùng trong CloudEntryResponse.created_by")
 public record CloudUserResponse(
         @Schema(description = "UUID user nội bộ") String id,

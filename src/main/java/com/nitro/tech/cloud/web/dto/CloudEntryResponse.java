@@ -1,6 +1,5 @@
 package com.nitro.tech.cloud.web.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
@@ -13,7 +12,6 @@ import java.util.List;
  * cùng shape ({@code is_folder}, {@code child_number}, …).
  * Chỉ root listing có {@code children} (một lớp); folder con / file không kèm {@code children}.
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "Một nút trong cloud listing (folder hoặc file metadata)")
 public record CloudEntryResponse(
         @JsonProperty("is_folder") @Schema(description = "true = thư mục, false = file metadata") boolean isFolder,

@@ -1,12 +1,10 @@
 package com.nitro.tech.cloud.web.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nitro.tech.cloud.service.FolderService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "Kết quả verify invite code")
 public record VerifyFolderInviteResponse(
         @Schema(description = "true nếu invite còn hợp lệ") boolean valid,

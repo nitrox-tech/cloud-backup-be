@@ -1,13 +1,11 @@
 package com.nitro.tech.cloud.web.dto;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * Serializable snapshot returned by {@code GET /config/telegram} and embedded in login response.
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(description = "Quy tắc client: upload, routing, archive group, widget…")
 public record TelegramClientRulesResponse(
         @JsonProperty("schema_version") int schemaVersion,
