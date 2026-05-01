@@ -73,6 +73,7 @@ Listing theo folder / tree: dùng `GET /clouds/private` hoặc `GET /clouds/publ
 - `GET /clouds/private` - private root + one layer of children (`PrivateCloudTreeResponse`)
 - `GET /clouds/folders/{id}` - any accessible folder + one layer of children (same shape as `/clouds/private`)
 - `GET /clouds/public-workspace` - shareable roots + one layer each
+- `GET /clouds/search` - tìm kiếm tệp tin metadata-based (`q`, `source`, `file_type`, `days`)
 - `PUT /clouds/entries/{id}/move` - move **file** or **folder** into `target_folder_id` (same `root_folder_id`; body có `is_folder`)
 
 Chi tiết từng method/path không đều có mục `##` riêng bên dưới; bổ sung đầy đủ luôn có trong **OpenAPI** (`GET /v3/api-docs`) và Swagger UI.
@@ -156,6 +157,35 @@ Notes:
 - If creating a root folder (`parent_id = null`), folder type is decided by request field `shareable`.
 - If creating a subfolder (`parent_id != null`), `shareable` is inherited from parent folder (request `shareable` is ignored for this case).
 - `telegram_chat_id` is only accepted for shareable root folders.
+
+## `GET /clouds/search`
+
+Protected (API key + JWT). Tìm kiếm tệp tin dựa trên metadata trong database.
+
+Query Parameters:
+- `q` (string, required): Từ khóa tìm kiếm (tên file).
+- `source` (string, optional, default: `all`): Phạm vi tìm kiếm (`all`, `private`, `shared`).
+- `file_type` (string, optional, default: `all`): Loại tệp (`all`, `image`, `video`, `audio`, `document`, `archive`).
+- `days` (int, optional): Giới hạn thời gian tạo tệp (số ngày).
+
+Response body:
+```json
+{
+  "items": [
+    {
+      "is_folder": false,
+      "id": "file-uuid",
+      "name": "filename.jpg",
+      "root_folder_id": "root-uuid",
+      "parent_folder_id": "folder-uuid",
+      "mime_type": "image/jpeg",
+      "file_size": "1024",
+      "created_at": "2026-05-01T10:00:00Z",
+      "is_favorite": false
+    }
+  ]
+}
+```
 
 ## `GET /clouds/folders/{id}`
 

@@ -45,6 +45,25 @@ public class FileMetadataService {
         this.userRepository = userRepository;
     }
 
+    @Transactional(readOnly = true)
+    public List<CloudEntryResponse> searchFiles(
+            String userId, String query, String source, String fileType, Integer days) {
+        Instant createdAtStart = null;
+        if (days != null && days > 0) {
+            createdAtStart = Instant.now().minus(java.time.Duration.ofDays(days));
+        }
+
+        String safeSource = (source == null || source.isBlank()) ? "all" : source.toLowerCase();
+        String safeFileType = (fileType == null || fileType.isBlank()) ? "all" : fileType.toLowerCase();
+        String safeQuery = (query == null || query.isBlank()) ? null : query.trim();
+
+        return storedFileRepository
+                .searchFiles(userId, safeQuery, safeSource, safeFileType, createdAtStart)
+                .stream()
+                .map(f -> toCloudEntryForViewer(userId, f))
+                .toList();
+    }
+
     @Transactional
     public StoredFile save(String userId, FileMetadataRequest req) {
         if (req.folderId() != null && !folderAccessService.canAccessFolder(userId, req.folderId())) {

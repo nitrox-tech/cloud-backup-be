@@ -7,6 +7,7 @@ import com.nitro.tech.cloud.service.FolderService;
 import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.service.PrivateCloudService;
 import com.nitro.tech.cloud.web.dto.CloudHomeResponse;
+import com.nitro.tech.cloud.web.dto.CloudSearchResponse;
 import com.nitro.tech.cloud.web.dto.FavoriteFilesPageResponse;
 import com.nitro.tech.cloud.web.dto.MoveCloudEntryRequest;
 import com.nitro.tech.cloud.web.dto.PrivateCloudTreeResponse;
@@ -122,6 +123,23 @@ public class CloudsController {
             @Parameter(description = "UUID file metadata bất kỳ trong cây (xor với folderId)") @RequestParam(required = false)
                     String fileId) {
         return privateCloudService.buildFolderTreeFromFolderOrFile(SecurityUtils.currentUserId(), folderId, fileId);
+    }
+
+    @Operation(
+            summary = "Tìm kiếm tệp tin (metadata-based)",
+            description =
+                    "Tìm kiếm tập trung dựa trên metadata trong database. Hỗ trợ lọc theo từ khóa, phạm vi (private/shared), loại tệp và thời gian.")
+    @GetMapping("/search")
+    public CloudSearchResponse searchFiles(
+            @Parameter(description = "Từ khóa tìm kiếm (tên file)", required = true) @RequestParam String q,
+            @Parameter(description = "Phạm vi: all, private, shared") @RequestParam(required = false, defaultValue = "all")
+                    String source,
+            @Parameter(description = "Loại tệp: all, image, video, audio, document, archive")
+                    @RequestParam(required = false, defaultValue = "all")
+                    String file_type,
+            @Parameter(description = "Giới hạn thời gian (số ngày)") @RequestParam(required = false) Integer days) {
+        var results = fileMetadataService.searchFiles(SecurityUtils.currentUserId(), q, source, file_type, days);
+        return new CloudSearchResponse(results);
     }
 
     @Operation(
