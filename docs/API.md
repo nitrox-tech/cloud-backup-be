@@ -26,8 +26,8 @@ Public endpoints (no API key, no JWT):
 1. Call `POST /auth/telegram` with Telegram user payload.
 2. Read `access_token` in response.
 3. For protected APIs, send:
-   - `X-API-Key`
-   - `Authorization: Bearer <access_token>`
+    - `X-API-Key`
+    - `Authorization: Bearer <access_token>`
 
 ---
 
@@ -39,13 +39,8 @@ Public endpoints (no API key, no JWT):
 
 ### Auth
 
-- `POST /auth/telegram` - login/upsert user, returns JWT and Telegram client rules
-  - For newly created users, server auto-creates one private root folder named `Private Folder` (`shareable=false`).
-
-### Telegram Client Config
-
-- `GET /config/telegram` - full Telegram client rules snapshot (API key + JWT)
-- `GET /config/telegram/archive-group` - archive-group subset (API key + JWT)
+- `POST /auth/telegram` - login/upsert user, returns JWT and full client rules (replaces separate config endpoints)
+    - For newly created users, server auto-creates one private root folder named `Private Folder` (`shareable=false`).
 
 ### Folders
 
@@ -113,7 +108,7 @@ Response body (important fields):
     "telegram_user_id": "123456789",
     "username": "marco"
   },
-  "telegram_client": {
+  "rules": {
     "schema_version": 4
   }
 }
@@ -124,9 +119,9 @@ Notes:
 - Server currently trusts client-sent Telegram user id.
 - `access_token` is the value to put into `Authorization: Bearer ...`.
 - On first login (new user record), backend auto-creates a private root folder:
-  - `name = "Private Folder"`
-  - `parent_id = null`
-  - `shareable = false`
+    - `name = "Private Folder"`
+    - `parent_id = null`
+    - `shareable = false`
 
 ## `POST /folders`
 
@@ -407,6 +402,6 @@ curl -X POST "http://localhost:8080/files/metadata" \
 - `is_favorite` on file rows: có trên `GET|POST|PUT /files/...` và sau `POST /files/{id}/favorite`; thường **không** có trên file trong `GET /clouds/...` listing (để tránh N+1).
 - Telegram file bytes are not served by this backend; this service stores metadata and access rules.
 - For business semantics of Telegram routing, also read:
-  - `docs/TELEGRAM_CLIENT_RULES.md`
-  - `docs/MOBILE_INTEGRATION_AND_FILE_UI.md`
+    - `docs/TELEGRAM_CLIENT_RULES.md`
+    - `docs/MOBILE_INTEGRATION_AND_FILE_UI.md`
 

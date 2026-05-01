@@ -8,7 +8,7 @@ Tài liệu này **bổ sung** [TELEGRAM_CLIENT_RULES.md](./TELEGRAM_CLIENT_RULE
 
 | Thành phần | Việc làm |
 |------------|----------|
-| **Backend** | Auth, API key, metadata file/folder/member, `GET /config/telegram` (rules, limits, routing). **Không** gọi Telegram để upload/download/preview file (tránh rủi ro block / sai mô hình sử dụng API). |
+| **Backend** | Auth, API key, metadata file/folder/member, rules snapshot (embedded in login). **Không** gọi Telegram để upload/download/preview file (tránh rủi ro block / sai mô hình sử dụng API). |
 | **Mobile — lớp nghiệp vụ** | Gọi REST, hiển thị danh sách theo metadata; **không** nhúng chi tiết MTProto vào từng màn hình. |
 | **Mobile — Telegram executor** | Một module: đọc rules + metadata (`message_id`, `telegram_file_id`, `folder`/`telegram_chat_id` gốc share…) và thực hiện gửi/nhận file qua **session user Telegram** (TDLib / tương đương). |
 

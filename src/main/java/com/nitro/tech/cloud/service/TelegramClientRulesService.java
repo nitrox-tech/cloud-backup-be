@@ -1,7 +1,6 @@
 package com.nitro.tech.cloud.service;
 
 import com.nitro.tech.cloud.config.TelegramClientRulesProperties;
-import com.nitro.tech.cloud.web.dto.TelegramArchiveGroupConfigResponse;
 import com.nitro.tech.cloud.web.dto.TelegramClientRulesResponse;
 import org.springframework.stereotype.Service;
 
@@ -60,12 +59,6 @@ public class TelegramClientRulesService {
                 uploadRouting,
                 archiveGroup,
                 loginWidget);
-    }
-
-    public TelegramArchiveGroupConfigResponse archiveGroupSnapshot() {
-        TelegramClientRulesResponse full = snapshot();
-        return new TelegramArchiveGroupConfigResponse(
-                full.schemaVersion(), full.archiveGroup());
     }
 
     private static String blankToNull(String s) {

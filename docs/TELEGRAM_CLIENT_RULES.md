@@ -17,9 +17,8 @@ The backend still stores **no file blobs**; it only returns **metadata and these
 
 | Scenario | Action |
 |----------|--------|
-| User opens app and **JWT is still valid** | `GET /config/telegram` with `Authorization: Bearer <access_token>` |
-| User opens app and **JWT expired / no session** | `POST /auth/telegram` — response includes **`telegram_client`** (same shape as `GET /config/telegram`) |
-| Only **supergroup / archive onboarding** rules | `GET /config/telegram/archive-group` (JWT required) |
+| User opens app and **JWT is still valid** | Use cached rules from previous session or re-login if rules are missing. |
+| User opens app and **JWT expired / no session** | `POST /auth/telegram` — response includes **`rules`** (full snapshot) |
 
 ---
 
@@ -27,9 +26,7 @@ The backend still stores **no file blobs**; it only returns **metadata and these
 
 | Method | Path | Auth | Response |
 |--------|------|------|----------|
-| `GET` | `/config/telegram` | Bearer JWT | `TelegramClientRulesResponse` |
-| `GET` | `/config/telegram/archive-group` | Bearer JWT | `TelegramArchiveGroupConfigResponse` |
-| `POST` | `/auth/telegram` | None | `AuthResponse` including `telegram_client` (JSON body: `{ "id": <telegram_user_id>, "username": "..." }`, `hash` / `auth_date` optional and ignored) |
+| `POST` | `/auth/telegram` | None | `AuthResponse` including `rules` (JSON body: `{ "id": <telegram_user_id>, "username": "..." }`, `hash` / `auth_date` optional and ignored) |
 
 ```http
 Authorization: Bearer <access_token>
@@ -53,7 +50,7 @@ Accept: application/json
     "telegram_user_id": "<telegram-user-id-string>",
     "username": "<optional>"
   },
-  "telegram_client": { }
+  "rules": { }
 }
 ```
 
@@ -118,21 +115,9 @@ Optional public `bot_username` (e.g. deep links). **Not** used by the server for
 
 ---
 
-## 5. `GET /config/telegram/archive-group`
-
-```json
-{
-  "schema_version": 4,
-  "archive_group": {
-    "group_title": { },
-    "telegram": { }
-  }
-}
-```
-
 ---
 
-## 6. Example full payload (illustrative)
+## 5. Example full payload (illustrative)
 
 ```json
 {

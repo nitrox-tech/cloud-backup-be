@@ -8,19 +8,19 @@ public record AuthResponse(
         @JsonProperty("access_token") @Schema(description = "JWT dùng Authorization: Bearer") String accessToken,
         @JsonProperty("token_type") @Schema(description = "Luôn Bearer") String tokenType,
         @Schema(description = "Thông tin user") AuthUser user,
-        @JsonProperty("telegram_client") @Schema(description = "Snapshot quy tắc client") TelegramClientRulesResponse telegramClient) {
+        @JsonProperty("rules") @Schema(description = "Snapshot quy tắc client") TelegramClientRulesResponse rules) {
 
     public static AuthResponse of(
             String jwt,
             String systemUserId,
             String telegramUserId,
             String username,
-            TelegramClientRulesResponse telegramClient) {
+            TelegramClientRulesResponse rules) {
         return new AuthResponse(
                 jwt,
                 "Bearer",
                 new AuthUser(systemUserId, telegramUserId, username),
-                telegramClient);
+                rules);
     }
 
     /**
