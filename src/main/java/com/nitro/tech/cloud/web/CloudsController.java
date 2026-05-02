@@ -8,6 +8,7 @@ import com.nitro.tech.cloud.service.NotFoundException;
 import com.nitro.tech.cloud.service.PrivateCloudService;
 import com.nitro.tech.cloud.web.dto.CloudHomeResponse;
 import com.nitro.tech.cloud.web.dto.CloudSearchResponse;
+import com.nitro.tech.cloud.web.dto.CloudStorageStatsResponse;
 import com.nitro.tech.cloud.web.dto.FavoriteFilesPageResponse;
 import com.nitro.tech.cloud.web.dto.MoveCloudEntryRequest;
 import com.nitro.tech.cloud.web.dto.PrivateCloudTreeResponse;
@@ -74,6 +75,14 @@ public class CloudsController {
         int uiPage = Math.max(1, page);
         int safeSize = Math.min(FAVORITE_PAGE_MAX_SIZE, Math.max(1, size));
         return cloudHomeService.pageFavorites(SecurityUtils.currentUserId(), uiPage, safeSize);
+    }
+    
+    @Operation(
+            summary = "Thống kê dung lượng lưu trữ",
+            description = "Lấy thông tin thống kê dung lượng lưu trữ của người dùng hiện tại, phân loại theo loại tệp.")
+    @GetMapping("/stats")
+    public CloudStorageStatsResponse getStorageStats() {
+        return fileMetadataService.getStorageStats(SecurityUtils.currentUserId());
     }
 
     @Operation(

@@ -54,4 +54,40 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, String> 
     @Modifying
     @Query("DELETE FROM StoredFile f WHERE f.folderId IN :folderIds")
     void deleteByFolderIdIn(@Param("folderIds") Collection<String> folderIds);
+
+    @Query(
+            value =
+                    """
+            SELECT
+                COALESCE(SUM(f.file_size), 0) as total,
+                COALESCE(SUM(CASE WHEN f.mime_type LIKE 'image/%' THEN f.file_size ELSE 0 END), 0) as photo,
+                COALESCE(SUM(CASE WHEN f.mime_type LIKE 'video/%' THEN f.file_size ELSE 0 END), 0) as video,
+                COALESCE(SUM(CASE WHEN f.mime_type LIKE 'audio/%' THEN f.file_size ELSE 0 END), 0) as audio,
+                COALESCE(SUM(CASE WHEN (
+                    f.mime_type LIKE 'text/%'
+                    OR f.mime_type = 'application/pdf'
+                    OR f.mime_type LIKE 'application/msword'
+                    OR f.mime_type LIKE 'application/vnd.ms-%'
+                    OR f.mime_type LIKE 'application/vnd.openxmlformats-officedocument.%'
+                ) THEN f.file_size ELSE 0 END), 0) as document
+            FROM files f
+            LEFT JOIN folders p ON f.folder_id = p.id
+            LEFT JOIN folders r ON p.root_folder_id = r.id
+            WHERE f.user_id = :userId
+            AND (f.folder_id IS NULL OR (r.id IS NOT NULL AND r.shareable = false))
+            """,
+            nativeQuery = true)
+    StorageStatsProjection getStorageStats(@Param("userId") String userId);
+
+    interface StorageStatsProjection {
+        long getTotal();
+
+        long getPhoto();
+
+        long getVideo();
+
+        long getAudio();
+
+        long getDocument();
+    }
 }

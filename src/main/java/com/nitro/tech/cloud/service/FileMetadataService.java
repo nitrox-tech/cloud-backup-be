@@ -10,6 +10,7 @@ import com.nitro.tech.cloud.repository.FolderRepository;
 import com.nitro.tech.cloud.repository.StoredFileRepository;
 import com.nitro.tech.cloud.repository.UserRepository;
 import com.nitro.tech.cloud.web.dto.CloudEntryResponse;
+import com.nitro.tech.cloud.web.dto.CloudStorageStatsResponse;
 import com.nitro.tech.cloud.web.dto.CloudUserResponse;
 import com.nitro.tech.cloud.web.dto.FileMetadataRequest;
 import java.time.Instant;
@@ -44,6 +45,20 @@ public class FileMetadataService {
         this.fileRecentRepository = fileRecentRepository;
         this.folderAccessService = folderAccessService;
         this.userRepository = userRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public CloudStorageStatsResponse getStorageStats(String userId) {
+        var projection = storedFileRepository.getStorageStats(userId);
+        long other = projection.getTotal()
+                - (projection.getPhoto() + projection.getVideo() + projection.getAudio() + projection.getDocument());
+        return new CloudStorageStatsResponse(
+                projection.getTotal(),
+                projection.getPhoto(),
+                projection.getVideo(),
+                projection.getAudio(),
+                projection.getDocument(),
+                Math.max(0, other));
     }
 
     @Transactional(readOnly = true)
