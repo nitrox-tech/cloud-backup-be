@@ -28,18 +28,18 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, String> 
                     OR EXISTS (SELECT 1 FROM folder_members m WHERE m.folder_id = p.root_folder_id AND m.user_id = :userId)
                 ))
             )
-            AND (:query IS NULL OR LOWER(f.file_name) LIKE LOWER(CONCAT('%', :query, '%')))
-            AND (:createdAtStart IS NULL OR f.created_at >= :createdAtStart)
-            AND (:source = 'all'
-                 OR (:source = 'private' AND (f.folder_id IS NULL OR (r.id IS NOT NULL AND r.shareable = false)))
-                 OR (:source = 'shared' AND f.folder_id IS NOT NULL AND r.id IS NOT NULL AND r.shareable = true)
+            AND (CAST(:query AS TEXT) IS NULL OR LOWER(f.file_name) LIKE LOWER(CONCAT('%', CAST(:query AS TEXT), '%')))
+            AND (CAST(:createdAtStart AS TIMESTAMP) IS NULL OR f.created_at >= CAST(:createdAtStart AS TIMESTAMP))
+            AND (CAST(:source AS TEXT) = 'all'
+                 OR (CAST(:source AS TEXT) = 'private' AND (f.folder_id IS NULL OR (r.id IS NOT NULL AND r.shareable = false)))
+                 OR (CAST(:source AS TEXT) = 'shared' AND f.folder_id IS NOT NULL AND r.id IS NOT NULL AND r.shareable = true)
             )
-            AND (:fileType = 'all'
-                 OR (:fileType = 'image' AND f.mime_type LIKE 'image/%')
-                 OR (:fileType = 'video' AND f.mime_type LIKE 'video/%')
-                 OR (:fileType = 'audio' AND f.mime_type LIKE 'audio/%')
-                 OR (:fileType = 'document' AND (f.mime_type LIKE 'text/%' OR f.mime_type = 'application/pdf' OR f.mime_type LIKE 'application/vnd.ms-%' OR f.mime_type LIKE 'application/vnd.openxmlformats-officedocument.%'))
-                 OR (:fileType = 'archive' AND f.mime_type IN ('application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/x-tar', 'application/x-gzip'))
+            AND (CAST(:fileType AS TEXT) = 'all'
+                 OR (CAST(:fileType AS TEXT) = 'image' AND f.mime_type LIKE 'image/%')
+                 OR (CAST(:fileType AS TEXT) = 'video' AND f.mime_type LIKE 'video/%')
+                 OR (CAST(:fileType AS TEXT) = 'audio' AND f.mime_type LIKE 'audio/%')
+                 OR (CAST(:fileType AS TEXT) = 'document' AND (f.mime_type LIKE 'text/%' OR f.mime_type = 'application/pdf' OR f.mime_type LIKE 'application/vnd.ms-%' OR f.mime_type LIKE 'application/vnd.openxmlformats-officedocument.%'))
+                 OR (CAST(:fileType AS TEXT) = 'archive' AND f.mime_type IN ('application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/x-tar', 'application/x-gzip'))
             )
             ORDER BY f.created_at DESC
             """,
